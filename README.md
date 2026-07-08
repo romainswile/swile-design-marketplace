@@ -11,7 +11,7 @@ Settings → Plugins → **Add marketplace** → coller l'URL de ce repo → ins
 
 ### Option B — CLI Claude Code
 ```
-/plugin marketplace add <owner>/<repo>
+/plugin marketplace add romainswile/swile-figma-marketplace
 /plugin install swile-plugin@swile-marketplace
 ```
 
@@ -20,7 +20,7 @@ Ajouter dans `~/.claude/settings.json` :
 ```json
 {
   "extraKnownMarketplaces": {
-    "swile-marketplace": { "source": { "source": "github", "repo": "<owner>/<repo>" } }
+    "swile-marketplace": { "source": { "source": "github", "repo": "romainswile/swile-figma-marketplace" } }
   },
   "enabledPlugins": { "swile-plugin@swile-marketplace": true }
 }
