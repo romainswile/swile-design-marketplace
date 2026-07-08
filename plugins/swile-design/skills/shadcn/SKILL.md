@@ -3,7 +3,7 @@ name: shadcn
 description: Procédure verrouillée pour reproduire / étendre / créer des écrans Figma avec le design system Swile « 🏢 Flõw | Corporate » (shadcn), via le MCP figma-console (Desktop Bridge). UNIQUEMENT pour ce DS, via la commande /swile-design:shadcn (jamais en auto-déclenchement).
 ---
 
-# swile-design — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
+# swile-design v3.3.0 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
 
 **Conception** : sous pression tu suis les gates mécaniques et tu zappes la prose — prouvé sur ~30 sessions, RE-prouvé au run du 07/07 (tout ce qui a tenu était scripté, tout ce qui a cassé était de la prose). Donc : chaque décision à risque passe par **un script fourni qui sort un artefact**, chaque écart passe par **un registre**, et la fin d'un écran passe par **une réconciliation bloquante**. « Fait » sans l'artefact = interdit. Les scripts retournent leurs preuves — colle leurs sorties, ne les résume pas. **Un artefact "vert" ne vaut que ce que sa couverture vaut** : c'est `reconcile()` qui prouve la couverture, pas ton affirmation.
 
@@ -23,11 +23,17 @@ description: Procédure verrouillée pour reproduire / étendre / créer des éc
 
 Plugin **Desktop Bridge** requis dans 3 fichiers : travail, DS **« 🏢 Flõw | Corporate »** (`4PbwFAfHhSgQXG9jAZL2EE`), icônes **« 🗂️ Flõw | Library »** (`gZnTctmu6pjs7IJpVls3gR`).
 
+0. **Skill à jour ?** (les plugins n'ont PAS d'auto-update : ce check est la seule notification) : `curl -s https://raw.githubusercontent.com/romainswile/swile-design-marketplace/master/.claude-plugin/marketplace.json` → compare `version` à celle du titre de ce document. Plus récente → affiche « 🟥 **PLUGIN swile-design vX.Y.Z DISPONIBLE** (session en vA.B.C) » et pose la question : ① « Je mets à jour maintenant (Recommandé) » → exécute `claude plugin marketplace update swile-marketplace && claude plugin update swile-design@swile-marketplace` (commande `claude` introuvable → donne à l'user : `/plugin marketplace update swile-marketplace` puis `/plugin` → Installed → swile-design → update), puis demande de **redémarrer la session** ; ② « Continuer avec la version actuelle » → note au LEDGER `{type:'VERSION-PERIMEE'}` et continue. Pas de réseau/curl → continue sans bloquer.
 1. **Un seul serveur** : `figma_get_status` → **`portFallbackUsed` DOIT être `false`** (et `otherInstances` vide s'il est présent — champ absent des sorties récentes : ne conclus jamais « pas d'orphelin » de son absence). `portFallbackUsed:true` = un autre serveur tient le port préféré → inventaire (`lsof -i :9223-9232` / `netstat -ano`) et kill des orphelins, PAS un caveat à noter (session Mac du 08/07 : ignoré au setup → 3 serveurs concurrents → 1ʳᵉ panne à T+2 min sans aucune action à risque). Demande à l'user (question à choix, **1ʳᵉ option : « Je les tue automatiquement (Recommandé) »**) puis — Windows (PowerShell) : `taskkill /PID <pid> /F` · macOS/Linux : `kill -9 <pid>`. ⚠️ **Tuer les orphelins AVANT toute réouverture du plugin** (scan des ports → rattachement à un orphelin).
 2. **Bridge répond** : boucle `figma_get_status` (`probe:true`) jusqu'à `probeResult.success===true`. `false` après ~15 s → STOP : « ferme et rouvre le plugin sur <fichier>, puis dis-moi ok. »
 3. **3 fichiers connectés** : `figma_list_open_files`. Manquant → STOP.
 4. **DS abonnée** (cible = fichier de travail) : `getAvailableLibraryVariableCollectionsAsync()` liste des collections « Corporate ». Sinon STOP → Assets > Libraries. *(PAS `figma_get_library_variables`.)*
-5. **Plugin Bridge à jour** : dans le status, `pluginVersion` de CHAQUE fichier connecté = `bundledPluginVersion`, et jamais `pluginUpdateAvailable:true`. Sinon STOP → « ferme et rouvre le plugin Desktop Bridge dans les 3 fichiers (il se met à jour à la réouverture) ; si la version reste ancienne, réimporte le manifest `~/.figma-console-mcp/plugin/manifest.json` ». Une session entière a gelé en cascade sur un plugin v1.14 périmé (le serveur attendait la v1.34).
+5. **Plugin Bridge à jour** : dans le status, `pluginVersion` de CHAQUE fichier connecté = `bundledPluginVersion`, et jamais `pluginUpdateAvailable:true`. Sinon STOP et affiche EXACTEMENT ce gabarit (une session entière a gelé en cascade sur un plugin v1.14 périmé) :
+> 🟥 **STOP — plugin Figma « Desktop Bridge » périmé** (détecté : v\<X\> · attendu : v\<Y\>). Cette combinaison n'est pas testée et est suspectée dans des gels d'imports en cascade. À faire (30 s, une fois) :
+> 1. Dans Figma, ferme puis rouvre le plugin (Plugins → Development → Figma Desktop Bridge) dans les 3 fichiers.
+> 2. Toujours v\<X\> ? Ton manifest pointe vers une vieille copie → Plugins → Development → supprime « Figma Desktop Bridge » → **Import plugin from manifest** → `~/.figma-console-mcp/plugin/manifest.json` → rouvre-le dans les 3 fichiers.
+>
+> Dis-moi « ok » quand c'est fait — je revérifie et on continue.
 
 `figma_navigate` switche la cible sans rien fermer. **Après CHAQUE navigate : probe trivial** (`return 1+1`) — timeout sur read trivial = divergence onglet/cible, pas une lenteur. Re-check le point 1 avant chaque phase d'import.
 

@@ -8,7 +8,7 @@ Dans Claude : **Settings → Plugins → Add marketplace** → coller :
 ```
 https://github.com/romainswile/swile-design-marketplace
 ```
-→ installer **swile-design**. Le pont Figma (MCP figma-console) est inclus et démarre tout seul ; les mises à jour arrivent ensuite toutes seules.
+→ installer **swile-design**. Le pont Figma (MCP figma-console) est inclus et démarre tout seul. Les mises à jour : le skill vérifie lui-même à chaque lancement qu'il est à jour, et vous propose de faire la mise à jour à votre place (2 min) quand une nouvelle version existe — vous n'avez rien à surveiller.
 
 ## Utilisation
 
