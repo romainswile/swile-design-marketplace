@@ -31,6 +31,14 @@ s="$(cat "$sent" 2>/dev/null)"
 etat="$(printf '%s' "$s" | sed -n 's/.*"etat"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
 case "$s" in *'"clean":true'*|*'"clean": true'*) clean=1;; *) clean=0;; esac
 
+case "$s" in
+  *'"etat"'*|*'"clean"'*) : ;;
+  *)
+    echo "[$ts] sh BLOCK sentinelle illisible" >> "$log"
+    printf '%s' '{"decision":"block","reason":"[swile-design] Sentinelle .swile-verify.json illisible (JSON invalide ou vide). Reecris-la : {etat, ecrans:{...}, clean} apres avoir re-execute les passes de verification."}'
+    exit 0;;
+esac
+
 if [ "$etat" = "en_attente_verdict" ] || [ "$etat" = "bloque" ]; then
   echo "[$ts] sh pass etat=$etat" >> "$log"; exit 0
 fi

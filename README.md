@@ -1,6 +1,6 @@
 # swile-design — reproduction d'écrans Figma vers le DS « 🏢 Flõw | Corporate »
 
-Plugin Claude Code/Desktop. Une fois installé, tout est automatique — y compris les mises à jour.
+Plugin Claude Code/Desktop. Une fois installé, tout est automatique — et le skill vérifie lui-même à chaque lancement qu'il est à jour.
 
 ## Installation (une fois, ~1 minute — aucun compte requis)
 
@@ -21,7 +21,7 @@ Astuce : mettez tous vos écrans dans le même run (la préparation se paie une 
 
 3. En fin de session, si des points d'amélioration ou des erreurs ont été relevés, un rapport est déposé automatiquement dans le dossier Drive de l'équipe (connecteur Google Drive requis — si absent, le skill vous proposera de le connecter ou d'envoyer le rapport à Romain).
 
-⚠️ Si le skill affiche une alerte **« ANNEXE/SNAPSHOT DS PÉRIMÉ »** : prévenez Romain.
+⚠️ Si le skill affiche une alerte **« SNAPSHOT/ANNEXE DS PÉRIMÉ »** : prévenez Romain.
 
 ---
 <details>
