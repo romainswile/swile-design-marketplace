@@ -23,10 +23,11 @@ description: Procédure verrouillée pour reproduire / étendre / créer des éc
 
 Plugin **Desktop Bridge** requis dans 3 fichiers : travail, DS **« 🏢 Flõw | Corporate »** (`4PbwFAfHhSgQXG9jAZL2EE`), icônes **« 🗂️ Flõw | Library »** (`gZnTctmu6pjs7IJpVls3gR`).
 
-1. **Un seul serveur** : `figma_get_status` → `otherInstances` **vide** (aggravant : `portFallbackUsed:true`). Sinon, avec accord user — Windows (PowerShell) : `taskkill /PID <pid> /F` · macOS/Linux : `kill -9 <pid>`. ⚠️ **Tuer les orphelins AVANT toute réouverture du plugin** (scan des ports 9223→9232 → rattachement à un orphelin).
+1. **Un seul serveur** : `figma_get_status` → **`portFallbackUsed` DOIT être `false`** (et `otherInstances` vide s'il est présent — champ absent des sorties récentes : ne conclus jamais « pas d'orphelin » de son absence). `portFallbackUsed:true` = un autre serveur tient le port préféré → inventaire (`lsof -i :9223-9232` / `netstat -ano`) et kill des orphelins, PAS un caveat à noter (session Mac du 08/07 : ignoré au setup → 3 serveurs concurrents → 1ʳᵉ panne à T+2 min sans aucune action à risque). Demande à l'user (question à choix, **1ʳᵉ option : « Je les tue automatiquement (Recommandé) »**) puis — Windows (PowerShell) : `taskkill /PID <pid> /F` · macOS/Linux : `kill -9 <pid>`. ⚠️ **Tuer les orphelins AVANT toute réouverture du plugin** (scan des ports → rattachement à un orphelin).
 2. **Bridge répond** : boucle `figma_get_status` (`probe:true`) jusqu'à `probeResult.success===true`. `false` après ~15 s → STOP : « ferme et rouvre le plugin sur <fichier>, puis dis-moi ok. »
 3. **3 fichiers connectés** : `figma_list_open_files`. Manquant → STOP.
 4. **DS abonnée** (cible = fichier de travail) : `getAvailableLibraryVariableCollectionsAsync()` liste des collections « Corporate ». Sinon STOP → Assets > Libraries. *(PAS `figma_get_library_variables`.)*
+5. **Plugin Bridge à jour** : dans le status, `pluginVersion` de CHAQUE fichier connecté = `bundledPluginVersion`, et jamais `pluginUpdateAvailable:true`. Sinon STOP → « ferme et rouvre le plugin Desktop Bridge dans les 3 fichiers (il se met à jour à la réouverture) ; si la version reste ancienne, réimporte le manifest `~/.figma-console-mcp/plugin/manifest.json` ». Une session entière a gelé en cascade sur un plugin v1.14 périmé (le serveur attendait la v1.34).
 
 `figma_navigate` switche la cible sans rien fermer. **Après CHAQUE navigate : probe trivial** (`return 1+1`) — timeout sur read trivial = divergence onglet/cible, pas une lenteur. Re-check le point 1 avant chaque phase d'import.
 
@@ -44,6 +45,9 @@ return 'registres prêts';
 **Interdits (chaque violation a cassé un run réel)** :
 - `timeout:30000` sur **tout** call contenant un import (le défaut 5 s coupe l'import → fige le worker) **et sur tout walk d'arbre complet d'écran** (dumpSource/verify/compareToSource/textDiff sur une racine — mesuré jusqu'à ~15 s). Plafond dur figma_execute : 30 s.
 - Jamais : `Promise.all` d'imports · import + build même call (clés non cachées) · boucle d'import `await`-ée · `importComponentSetByKeyAsync` · `loadAllPagesAsync()` sur le DS · `figma_instantiate_component` / `figma_search_components` / `figma_get_library_variables`.
+- **Le SEUL cap autorisé autour d'un import** = le `withTimeout` 20 s PAR CLÉ de la boucle détachée du warm-up. Tout autre `Promise.race`/cap court « de diagnostic » autour d'un import = coupure interdite (la session Mac en a semé ~10, y compris APRÈS l'avoir elle-même diagnostiqué).
+- **Un call timeouté n'est PAS annulé** : l'exécution plugin continue et peut committer partiellement (row fantôme, frame à moitié posée — 3 cas mesurés). Après TOUT timeout d'un call de build : re-scan de la zone touchée AVANT de relancer, sinon doublons.
+- **Budget par call de build : ~15 ops** (latence mesurée jusqu'à ~1 s/op sur canal chargé ; le transport coupe les gros calls à ~10 s en ignorant ton paramètre timeout). Gros build = série de micro-calls.
 - **`.resize()` sur une INSTANCE = interdit** → `rescaleInst()` (§2.4) exclusivement, read-back obligatoire.
 - **Swap d'icône « nu » = interdit** — y compris via `setProperties` sur une prop INSTANCE_SWAP (boutons à icône) → `swapIcon()` (§2.4) exclusivement (swap + recolor + read-back + registre en un call).
 - **`counterAxisSizingMode='AUTO'` (hug) sur le frame RACINE d'un écran = interdit.** Un « contenu déborde » se corrige en **bissectant** (poste la table des hauteurs enfants repro vs source, corrige l'enfant fautif) — JAMAIS en aggrandissant/huggant le parent pour éteindre le flag.
@@ -97,18 +101,21 @@ globalThis.dumpSource = async (rootId, maxDepth) => {
 **Jamais de compteur agrégé** dans un relevé (« progIcons:18 » a masqué la variation par ligne) : pour les colonnes à contenu variable, liste **par ligne** les composants/icônes présents (`comp`/`name` du dump).
 **Sidebar** : se CLONE (`node.clone()`), nom exact `sidebar (cloné)`, chrome désigné uniquement — le CONTENU se reconstruit toujours. **Read-back post-clone obligatoire** : `{sourceSidebarH, cloneH, rootH}` avec `cloneH ≤ rootH` et `|cloneH−sourceSidebarH| ≤ 1`, sinon STOP et corrige le shell (jamais la racine en hug). Re-vérifié en fin d'écran.
 
-### 2.2 Mapping — tableau + registres + GATE
+### 2.2 Mapping — TEMPLATES d'abord, puis tableau + registres + GATE
+**0) TEMPLATES D'ABORD (obligatoire, avant toute décision de mapping)** : navigate DS + probe → page **« Swile - Templates »** (exemples officiels Swile validés, alimentée en continu ; section suffixée « **- CONVERT** » = paire AVANT (OLD) / APRÈS (SHADCN), sinon = shadcn from scratch). Scan scripté posté : sections + frames de premier niveau (noms/dims). Pour chaque écran demandé et chaque ligne de mapping, cherche la correspondance (même type d'écran/élément). **Si un template couvre l'élément, sa solution S'IMPOSE** — mêmes composants/variantes/tokens/pattern, lus par `dumpSource` sur le template ; du custom présent dans un template se réplique à l'identique depuis son dump (jamais réinventé). C'est la cohérence inter-écrans de Swile : le template bat ta préférence.
 **Artefact double** : le tableau lisible posté, ET sa forme machine dans le même call :
 ```js
 // une entrée par élément source, PAR ÉCRAN. statut: 'DS' | 'custom' | 'SONDE' (choix à mesurer)
-globalThis.MAPPING.push({ecran:'CODE', ligne:'bouton Add', src:'1:18932', choix:'Solid Button secondary/lg', statut:'DS'});
+// tpl OBLIGATOIRE : 'Section›élément' du template appliqué, ou 'aucun' (champ absent = ligne invalide au reconcile)
+// statut 'custom' exige preuveCustom : réf. à l'artefact posté (templates sans correspondance + ≥2 synonymes ✦/showcases sans résultat)
+globalThis.MAPPING.push({ecran:'CODE', ligne:'bouton Add', src:'1:18932', choix:'Solid Button secondary/lg', statut:'DS', tpl:'aucun'});
 ```
 - Éléments proches = composants **distincts**. **Recoupe rendu + nom du nœud source + logique attendue** — la sonde mesure, elle **ne dispense pas de lire la source** (bordure visible → Outline candidat ; fond transparent → Ghost ; un même libellé sur 2 écrans ≠ même composant : **re-lis le nœud source de CET écran** avant de réutiliser une ligne de mapping ailleurs — la chip bleue du 07/07 vient de là).
 - **Test skip/compromis, appliqué AU MOMENT du choix** : élément ou propriété **visible** de la source absent de la repro = **SKIP, quel que soit le mot que tu emploies** → GATE (stop, préviens, demande, attends). Composant DS présent mais valeur divergente (token/taille au plus proche) = **compromis** → `LEDGER.push({ecran, element, type:'COMPROMIS', source:'…', choix:'…', pourEgaler:'…'})` **immédiatement** (pas au rapport). Un compromis dont `pourEgaler` se résout par un **simple import** (ex. « importer Ghost Icon Button ») = **refusé** : fais l'import isolé (§2.6), « coûteux » n'est pas un motif.
-- **Custom = dernier recours avec preuve de recherche** (pages ✦/showcases inspectées, ≥2 synonymes, scriptable).
+- **Custom = dernier recours avec preuve MÉCANIQUE** : une ligne `statut:'custom'` n'est valide que si `preuveCustom:` référence un artefact scripté posté (scan Templates sans correspondance + `findAllWithCriteria` ≥2 synonymes sur pages ✦/showcases sans résultat). `reconcile()` échoue sur tout custom sans preuve — les deux fautes majeures du run Mac du 08/07 (avatars custom 17×24, nav custom) étaient des customs sans recherche, passés avec verify=0.
 - **Icônes** : « 🗂️ Flõw | Library » UNIQUEMENT. **Toute substitution/choix de glyphe exige la preuve de recherche scriptée** (navigate Library + probe → `findAllWithCriteria` filtré ≥2 synonymes → 1 screenshot du candidat comparé à la source). **Une clé de l'annexe ne vaut que pour un glyphe déjà comparé à la source dans CETTE session** — l'annexe n'est pas l'inventaire de la Library (paperplane du 07/07 : zéro visite de la Library de tout le run). Recherche infructueuse = SKIP → GATE.
 - **Sémantique des teintes** : un statut « en attente/pending » n'est PAS `Info` bleu par défaut — suis la couleur **mesurée** de la source (texte simple = texte simple).
-- **Accent de marque** : source violette vs DS neutre → **question user** (préférence), avant de construire.
+- **Violet legacy (accent Swile #664ef9 / #633fd3 / #5541cf / #d6d0fd…)** : en convert, mappe vers **`colors/violet/*`** (gamme Tailwind 50–950, mesurée au DS) au plus proche par distance — **sans question user**, LEDGER `{type:'ACCENT-TAILWIND (auto)'}` avec la nuance choisie. La question accent ne se pose qu'en create from scratch sans template applicable.
 - **Tokens partout, customs inclus** (couleurs, text styles, gap, padding, radius, border-width). **Absence dans l'annexe ≠ absence dans le DS** : avant tout arrondi, **preuve de recherche scriptée du token exact** (par nom ET par valeur, `getLocalVariablesAsync` sur le DS) collée — sans elle l'arrondi est refusé (spacing/0,5=2 existait, arrondi 2→4 sur 9 frames au 07/07).
 
 ### 2.3 Sonde (sur le DS) puis warm-up (sur le fichier de travail)
@@ -165,7 +172,7 @@ const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>re
   catch(e){ (String(e).includes('KEY_TIMEOUT')?G.timeouts:G.err).push(t.n); } G.done++; } })();
 return { total: G.total };   // détaché ; poll : {done, timeouts, err}
 ```
-`timeouts` → une relance après le lot ; re-timeout → §3.2. `err` → re-découverte **après le lot** (navigate DS, relève, retour + probe, relance ces clés).
+**Après le lancement de la boucle détachée : FENÊTRE MORTE de 120 s minimum — AUCUN call, pas même un poll.** Puis UN poll. Chaque call concurrent pendant la boucle peut geler les clés en cours de traitement (mesuré au run Mac : 8 clés échouées sur 53 = exactement celles en vol pendant les polls). `timeouts` → une relance après le lot ; re-timeout → §3.2. `err` → re-découverte **après le lot** (navigate DS, relève, retour + probe, relance ces clés).
 
 ### 2.4 Construis UN écran témoin
 **Témoin** = l'écran couvrant le plus de types (souvent le plus complexe) — annonce ton choix, ne le fais pas valider. Pose chaque repro à droite de sa source, frame `<nom source> (shadcn)`.
@@ -182,10 +189,11 @@ globalThis.rescaleInst = async (instId, cibleH) => {
   const avant = {w:inst.width, h:inst.height, fontSize: t0&&t0.fontSize, styleId: t0&&t0.textStyleId};
   inst.rescale(cibleH/inst.height);
   const t1 = inst.findAll(n=>n.type==='TEXT')[0];
-  const apres = {w:Math.round(inst.width), h:Math.round(inst.height), fontSize: t1&&t1.fontSize, styleId: t1&&(typeof t1.textStyleId==='string'&&t1.textStyleId!==''?'ok':'DÉTACHÉ')};
+  const apres = {w:Math.round(inst.width), h:Math.round(inst.height), fontSize: t1&&t1.fontSize,
+    styleDetache: !!(t1&&(t1.textStyleId===''||typeof t1.textStyleId!=='string'))};
   const out = {instId, avant, apres, fichierActif:figma.root.name};
   globalThis.RESIZES.push(out);
-  return out;   // styleId 'DÉTACHÉ' → ré-applique le text style DS puis re-read-back AVANT de continuer
+  return out;   // styleDetache:true est NORMAL et IRRÉPARABLE : ré-attacher après rescale = no-op silencieux de l'API (testé Win+Mac, 3 séquences). Visuel conforme (ratio préservé), token perdu → LEDGER {type:'RESCALE-DETACHE (auto)'} et continue. Ne « répare » pas ; ne passe JAMAIS en custom pour l'éviter.
 };
 ```
 - **Swap + recolor d'icône — HELPER OBLIGATOIRE** (le swap nu est un interdit §1 ; 1 entrée SWAPS = 1 paire compare exigée par reconcile) :
@@ -231,6 +239,9 @@ globalThis.verify = async (rootId) => {
     if(insideInst(n)||insideClone(n)) continue;   // intérieur d'instance + clone : hors scan (le clone est couvert par le read-back triple §2.1)
     if(n.type==='INSTANCE'){ const mc=await n.getMainComponentAsync();   // ⚠️ ordre : rename AVANT le skip d'intérieur ; jamais n.mainComponent (throw)
       if(mc&&n.name!==mc.name&&n.name!==((mc.parent||{}).name||'')) add(n,'instance renommée');
+      if(!(globalThis.RESIZES||[]).some(r=>r.instId===n.id))   // rescale détache inévitablement (LEDGER auto) → instances RESIZES exemptées
+        for(const t of n.findAll(x=>x.type==='TEXT'&&x.visible!==false))
+          if(t.textStyleId===''||typeof t.textStyleId!=='string'){ add(n,'texte détaché DANS instance'); break; }   // 133 textes réels scannés : 0 faux positif
       continue; }
     if(n.type==='FRAME'){
       if('children'in n) for(const c of n.children) if(c.x+c.width>n.width+0.5||c.y+c.height>n.height+0.5){ add(n,'contenu déborde'); break; }
@@ -324,10 +335,12 @@ globalThis.reconcile = (ecran, pairsPassed /* labels des paires réellement exé
   const m = MAPPING.filter(x=>x.ecran===ecran);
   const lignesSansPaire = m.filter(x=>!pairsPassed.some(l=>l.includes(x.ligne)) && !LEDGER.some(e=>e.ecran===ecran&&e.element===x.ligne)).map(x=>x.ligne);
   const sondeNonMesuree = m.filter(x=>x.statut==='SONDE').map(x=>x.ligne);
+  const customsSansPreuve = m.filter(x=>x.statut==='custom'&&!x.preuveCustom).map(x=>x.ligne);
+  const lignesSansTpl = m.filter(x=>!('tpl' in x)).map(x=>x.ligne);
   const swapsSansCheck = SWAPS.filter(s=>!pairsPassed.some(l=>l.includes(s.instId)||l.toLowerCase().includes('icon')) ).map(s=>s.instId);
-  const resizesNonProuves = RESIZES.filter(r=>r.apres&&r.apres.styleId==='DÉTACHÉ').map(r=>r.instId);
-  return { ecran, lignesSansPaire, sondeNonMesuree, swapsSansCheck, resizesNonProuves,
-    ok: !lignesSansPaire.length&&!sondeNonMesuree.length&&!swapsSansCheck.length&&!resizesNonProuves.length };
+  const resizesSansLedger = RESIZES.filter(r=>r.apres&&r.apres.styleDetache&&!LEDGER.some(e=>e.type&&String(e.type).startsWith('RESCALE-DETACHE'))).map(r=>r.instId);
+  return { ecran, lignesSansPaire, sondeNonMesuree, customsSansPreuve, lignesSansTpl, swapsSansCheck, resizesSansLedger,
+    ok: !lignesSansPaire.length&&!sondeNonMesuree.length&&!customsSansPreuve.length&&!lignesSansTpl.length&&!swapsSansCheck.length&&!resizesSansLedger.length };
 };
 ```
 **`reconcile().ok` DOIT être true avant le STOP témoin et avant chaque écran suivant** — chaque liste non vide se résout (paire ajoutée / sonde faite / LEDGER+gate) puis re-run. L'affirmation en prose du rapprochement est interdite.
@@ -349,7 +362,11 @@ Un ❌ ou « pas vérifiable » = écran non validé.
 **Corriger** = repasser la procédure (règles → read-back layout du nœud touché dans le même call → re-scan → re-compare) — jamais un patch pour éteindre un flag.
 **Rapport final = les registres, pas ta mémoire** : la table Compromis/Skips est `return globalThis.LEDGER` collé tel quel (reconstruction interdite — 5 compromis perdus au 07/07) + le reconcile final de chaque écran + customs avec preuves + lignes annexe non confirmées + récap. **Un blocage technique déguisé en compromis = rejeté** ; un skip sans OK user dans le transcript = rejeté. Rapport livré → sentinelle `{"etat":"fini","clean":true}` puis **supprime `.swile-run.lock`** (fin du gate).
 
-**RETEX (conditionnel, automatique, après le dernier rendu)** : SI le run contient au moins un axe d'amélioration — erreur signalée par l'user, panne §3 rencontrée, règle du skill prise en défaut, alerte 🟥 annexe périmée — dépose un fichier `retex-AAAA-MM-JJ-<user>-<fichier>.md` dans le dossier Drive d'équipe : connecteur **Google Drive** (cherche l'outil `create_file` via ToolSearch), dossier id `1-OckHhzBv4lmgte9t-x6YJna_1nh71nq`. Contenu : erreurs signalées + LEDGER complet + pannes rencontrées + « ce qui manquait au skill ». **Si tout s'est bien passé : pas de RETEX.** Connecteur Drive absent → propose à l'user : le connecter (Settings → Connectors) OU envoyer lui-même le fichier à Romain. Le RETEX n'empêche jamais la clôture du run.
+**RETEX (conditionnel, automatique, après le dernier rendu)** : SI le run contient au moins un axe d'amélioration — erreur signalée par l'user, panne §3 rencontrée, règle du skill prise en défaut, alerte 🟥 annexe périmée — crée un **sous-dossier** Drive `retex-AAAA-MM-JJ-<user>-<fichier>` dans le dossier d'équipe id `1-OckHhzBv4lmgte9t-x6YJna_1nh71nq` (connecteur **Google Drive**, outil `create_file` via ToolSearch ; dossier = `mimeType:"application/vnd.google-apps.folder"` ; images = `base64Content` + `contentMimeType:"image/png"` + `disableConversionToGoogleType:true` — testé). Dépose dedans, **le plus détaillé possible** (le lecteur n'a AUCUN contexte de ta session) :
+1. `retex.md` — timeline horodatée des pannes avec verbatim des erreurs, version du plugin Bridge, chaque décision non triviale + sa preuve, MAPPING + LEDGER + reconcile collés, questions/réponses user, « ce qui manquait au skill » ;
+2. les **captures côte-à-côte finales** de chaque écran (PNG : relis le fichier local produit par `figma_capture_screenshot`, encode-le : `openssl base64 -A -in <fichier>` ou équivalent) ;
+3. `.swile-state.json` et `.swile-verify.json` (texte).
+**Si tout s'est bien passé : pas de RETEX.** Connecteur Drive absent → propose à l'user : le connecter (Settings → Connectors) OU envoyer lui-même le dossier à Romain. Le RETEX n'empêche jamais la clôture du run.
 
 ---
 
@@ -381,6 +398,8 @@ Un ❌ ou « pas vérifiable » = écran non validé.
 | Pastilles/compteurs sur icônes | **custom à la main, pré-justifié** (mail/pastille grise · user/violet #664ef9 · compteur) — à reproduire **par ligne selon le dump** | jamais cloné ; jamais simplifié sans GATE |
 | Statut « en attente/pending » | suit la **couleur mesurée de la source** (texte simple = texte simple) | JAMAIS `Info` bleu par défaut |
 
+**Page « Swile - Templates »** (DS) : exemples officiels Swile — sections `<ÉCRAN> - CONVERT` = paires OLD/SHADCN (mesuré : COLLABORATEURS, PROFIL au 08/07), sans suffixe = from scratch. Consultation obligatoire §2.2-0.
+**Accent violet Tailwind** : `colors/violet/500` #8b5cf6 c49a5e4d9c53a332c288a8470b3edd6bdb15ab80 · `600` #7c3aed 273d4ff0bcd0d0d0cf05abfb4a258abf070fbac6 (gamme 50–950 + purple dispo, mesurée) — nuance au plus proche de la source par distance.
 **Pièges DS** : `theme/primary` = noir #171717, PAS violet · boutons max `lg` h40 · `theme/muted` canvas · `theme/card` carte · `theme/border` bordures · `foreground`/`muted-foreground` textes · Avatar = Initials/Image × Circle · Alert Soft ≠ Solid (props différentes → lire sur l'instance) · **Select : intérieur du master verrouillé à 288 px** → pose l'instance dans un wrapper custom à largeur fixe (le resize direct ne tient pas).
 
 **Variables theme (« ☀️ Mode »)** : `background` 36d8943d0eb5c32d238a3dbe660f2d87f3f8df1d · `foreground` da9243f78b70a8ebe13306dc7916644bbd6032ca · `muted` 1a1c4fb51130fc6ac02bd86235145f4bf680e19a · `muted-foreground` 5608ad047b43e73345fd27d068601055ecef7f39 · `card` bf87620e38d9c9f825dcc342a3ae92f6b408236b · `border` ad89e5c8830e88a9cad5c7b7a0d92b2d1f4f4839 · `primary` 1b18ade61d046a487e4979cf8f380a8ef49d692b · `primary-foreground` 6da70a3468f722f3ca072e4d6d99c6a4ab3995e5 · `secondary` 38a4db465d1d3aa4f591c9a996fda92687667bcb · `accent` 361675c5f04130e691273ce02fbace92ae529031 · `info` 755d67b7cf2a27c5ccc8c2318af283a0a31bdc1b · `success` cfc6b1fa897ef27dd5a08e0912fac9ddbd8d0d52 · `destructive` e5beee398ba3a66ebbc815b21291b5431d31a7ce
