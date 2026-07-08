@@ -1,0 +1,5 @@
+{
+  "name": "swile-plugin",
+  "version": "3.0.1",
+  "description": "Skill swile-test-v3 : reproduction d'écrans Figma avec le DS « 🏢 Flõw | Corporate » via figma-console, avec registres, réconciliation bloquante et gate de fin de tour (hooks Stop/SubagentStop)."
+}
