@@ -1,0 +1,5 @@
+{
+  "name": "swile-design",
+  "version": "3.0.2",
+  "description": "Skill shadcn : reproduction d'écrans Figma avec le DS « 🏢 Flõw | Corporate » via figma-console, avec registres, réconciliation bloquante et gate de fin de tour (hooks Stop/SubagentStop). Commande : /swile-design:shadcn"
+}

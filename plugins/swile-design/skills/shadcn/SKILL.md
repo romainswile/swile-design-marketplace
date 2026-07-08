@@ -1,6 +1,6 @@
 ---
-name: swile-test-v3
-description: Procédure verrouillée pour reproduire / étendre / créer des écrans Figma avec le design system Swile « 🏢 Flõw | Corporate » (shadcn), via le MCP figma-console (Desktop Bridge). UNIQUEMENT pour ce DS, via la commande /swile-plugin:swile-test-v3 (jamais en auto-déclenchement).
+name: shadcn
+description: Procédure verrouillée pour reproduire / étendre / créer des écrans Figma avec le design system Swile « 🏢 Flõw | Corporate » (shadcn), via le MCP figma-console (Desktop Bridge). UNIQUEMENT pour ce DS, via la commande /swile-design:shadcn (jamais en auto-déclenchement).
 ---
 
 # Swile Test — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)

@@ -1,45 +1,43 @@
-# Swile Figma Marketplace — plugin `swile-plugin`
+# swile-design — reproduction d'écrans Figma vers le DS « 🏢 Flõw | Corporate »
 
-Marketplace privé Claude Code contenant le plugin **swile-plugin** : reproduction d'écrans Figma avec le design system **« 🏢 Flõw | Corporate »** (shadcn), procédure verrouillée + vérifications scriptées + gate de fin de tour.
+Plugin Claude Code/Desktop. Une fois installé, tout est automatique — y compris les mises à jour.
 
-## Installation (une fois)
+## Installation (une fois, ~1 minute)
 
-**Prérequis** : accès en lecture à ce repo (demander une invitation à Romain), et Git configuré avec votre compte GitHub.
+**Prérequis** : un compte GitHub avec accès en lecture à ce repo (invitation envoyée par Romain).
 
-### Option A — Interface Claude Desktop
-Settings → Plugins → **Add marketplace** → coller l'URL de ce repo → installer **swile-plugin**.
-
-### Option B — CLI Claude Code
+Dans Claude : **Settings → Plugins → Add marketplace** → coller :
 ```
-/plugin marketplace add romainswile/swile-figma-marketplace
-/plugin install swile-plugin@swile-marketplace
+https://github.com/romainswile/swile-figma-marketplace
 ```
+→ installer **swile-design**. C'est tout. Les mises à jour arrivent ensuite toutes seules.
 
-### Option C — settings.json (si ni A ni B)
-Ajouter dans `~/.claude/settings.json` :
+## Utilisation
+
+1. Ouvrir Figma avec le plugin **Desktop Bridge** lancé dans : votre fichier de travail + le DS « 🏢 Flõw | Corporate » + la librairie « 🗂️ Flõw | Library »
+2. Dans une nouvelle session Claude :
+```
+/swile-design:shadcn convert les sections <...> du fichier "<votre fichier>"
+```
+Astuce : mettez tous vos écrans dans le même run (la préparation se paie une seule fois).
+
+3. En fin de session, si des points d'amélioration ou des erreurs ont été relevés, un rapport est déposé automatiquement dans le dossier Drive de l'équipe (connecteur Google Drive requis — si absent, le skill vous proposera de le connecter ou d'envoyer le rapport à Romain).
+
+⚠️ Si le skill affiche une alerte **« SNAPSHOT DS PÉRIMÉ »** : prévenez Romain.
+
+---
+<details>
+<summary>Dépannage : installer sans le menu Plugins</summary>
+
+CLI : `/plugin marketplace add romainswile/swile-figma-marketplace` puis `/plugin install swile-design@swile-marketplace`
+
+Ou dans `~/.claude/settings.json` :
 ```json
 {
   "extraKnownMarketplaces": {
     "swile-marketplace": { "source": { "source": "github", "repo": "romainswile/swile-figma-marketplace" } }
   },
-  "enabledPlugins": { "swile-plugin@swile-marketplace": true }
+  "enabledPlugins": { "swile-design@swile-marketplace": true }
 }
 ```
-
-## Utilisation
-
-Dans une nouvelle session, avec Figma ouvert et le plugin **Desktop Bridge** lancé dans : votre fichier de travail + le DS « 🏢 Flõw | Corporate » + la librairie « 🗂️ Flõw | Library » :
-
-```
-/swile-plugin:swile-test-v3 convert les sections <...> du fichier "<votre fichier>"
-```
-
-Conseil : groupez tous vos écrans dans un même run (la préparation se paie une fois par run).
-
-## Mises à jour
-
-Automatiques : à chaque bump de version poussé ici, votre Claude récupère la nouvelle version au prochain démarrage. Rien à faire.
-
-## Signaler un problème
-
-Chaque run dépose automatiquement un RETEX (rapport + compromis + suggestions) dans le dossier Drive partagé de l'équipe. En cas de résultat incorrect : notez l'ID de session et l'URL du fichier Figma, et partagez-les à Romain.
+</details>

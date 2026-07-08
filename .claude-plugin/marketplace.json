@@ -3,10 +3,10 @@
   "owner": { "name": "Romain Abidon" },
   "plugins": [
     {
-      "name": "swile-plugin",
-      "source": "./plugins/swile-plugin",
-      "description": "Conversion d'écrans Figma vers le DS Flõw Corporate (shadcn) — skill verrouillé + gate de vérification par hooks",
-      "version": "3.0.1"
+      "name": "swile-design",
+      "source": "./plugins/swile-design",
+      "description": "Conversion d'écrans Figma vers le DS Flõw Corporate (shadcn) — skill verrouillé + gate de vérification par hooks. Commande : /swile-design:shadcn",
+      "version": "3.0.2"
     }
   ]
 }
