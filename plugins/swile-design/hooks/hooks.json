@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/gate.ps1\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/gate.sh\""
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/gate.ps1\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/gate.sh\""
           }
         ]
       }

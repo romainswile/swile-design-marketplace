@@ -1,34 +1,34 @@
-# Gate swile-test : bloque la fin de tour tant qu'un run est en cours sans sentinelle propre.
-# Scope : ne fait RIEN si .swile-run.lock est absent du repertoire de travail (aucun impact hors runs swile-test).
-# Messages en ASCII volontairement (encodage stdin/stdout Windows).
+# Gate swile-design (FALLBACK Windows — le hook officiel est gate.sh, universel).
+# Sentinelle .swile-verify.json : etat = en_cours | en_attente_verdict | bloque | fini ; clean = true/false.
+# Bloque uniquement : lock sans sentinelle, ou etat en_cours / clean:false. Messages ASCII (encodage Windows).
 $ErrorActionPreference = 'SilentlyContinue'
-
 $raw = [Console]::In.ReadToEnd()
+$log = Join-Path $env:USERPROFILE '.swile-gate.log'
+function W([string]$m){ try { Add-Content -Path $log -Value ("[{0}] ps1 {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m) } catch {} }
 $h = $null
-try { $h = $raw | ConvertFrom-Json } catch { exit 0 }
-
-# anti-boucle : si deja bloque sans progres, laisser sortir
-if ($h -and $h.stop_hook_active) { exit 0 }
-
+try { $h = $raw | ConvertFrom-Json } catch { W 'stdin illisible'; exit 0 }
+if ($h -and $h.stop_hook_active) { W 'skip stop_hook_active'; exit 0 }
 $cwd = if ($h -and $h.cwd) { $h.cwd } else { (Get-Location).Path }
+W ("invoked cwd=" + $cwd)
 $lock = Join-Path $cwd '.swile-run.lock'
-if (-not (Test-Path $lock)) { exit 0 }
-
+if (-not (Test-Path $lock)) { W 'pass no-lock'; exit 0 }
 $sent = Join-Path $cwd '.swile-verify.json'
 if (-not (Test-Path $sent)) {
-  Write-Output '{"decision":"block","reason":"Run swile-test en cours (.swile-run.lock present) mais AUCUNE sentinelle .swile-verify.json. Le skill exige, pour chaque ecran fini : verify count:0 + compareToSource + textDiff gate + reconcile().ok, puis ecriture de la sentinelle (section 2.6). Execute les passes sur l ecran courant et ecris la sentinelle - ou, si le run est reellement termine, produis le rapport 2.7 puis supprime .swile-run.lock."}'
+  W 'BLOCK lock-sans-sentinelle'
+  Write-Output '{"decision":"block","reason":"[swile-design] .swile-run.lock present mais pas de .swile-verify.json : la verification n a pas ete faite. Execute verify() jusqu a count:0 + compareToSource + reconcile(), ecris .swile-verify.json (etat + clean), puis supprime .swile-run.lock si le run est fini."}'
   exit 0
 }
-
 $s = $null
 try { $s = Get-Content $sent -Raw | ConvertFrom-Json } catch {
-  Write-Output '{"decision":"block","reason":"Sentinelle .swile-verify.json illisible (JSON invalide). Reecris-la au format {ecrans:{...},clean:bool} apres avoir re-execute les passes de verification."}'
+  W 'BLOCK sentinelle illisible'
+  Write-Output '{"decision":"block","reason":"[swile-design] Sentinelle .swile-verify.json illisible (JSON invalide). Reecris-la : {etat, ecrans:{...}, clean} apres avoir re-execute les passes de verification."}'
   exit 0
 }
-
-if ($s.clean -ne $true) {
-  Write-Output '{"decision":"block","reason":"Sentinelle .swile-verify.json avec clean:false - au moins un ecran n a pas passe verify count:0 + reconcile().ok + textDiff gate. Termine les verifications de l ecran en cours (ou gate les skips avec l utilisateur), mets la sentinelle a jour, puis conclus."}'
-  exit 0
-}
-
+$etat = if ($s -and $s.etat) { [string]$s.etat } else { '' }
+$clean = ($s -and $s.clean -eq $true)
+if ($etat -eq 'en_attente_verdict' -or $etat -eq 'bloque') { W ("pass etat=" + $etat); exit 0 }
+if ($etat -eq 'fini' -and $clean) { W 'pass fini clean'; exit 0 }
+if ($etat -eq '' -and $clean) { W 'pass clean (sentinelle v1)'; exit 0 }
+W ("BLOCK etat=" + $(if($etat){$etat}else{'absent'}) + " clean=" + $clean)
+Write-Output '{"decision":"block","reason":"[swile-design] Sentinelle .swile-verify.json : ecran non verifie (etat en_cours ou clean:false). Termine la boucle verify() count:0 -> compareToSource -> reconcile, mets a jour la sentinelle (etat en_attente_verdict apres le temoin, fini en fin de run, bloque si panne bridge a signaler), puis reessaie."}'
 exit 0

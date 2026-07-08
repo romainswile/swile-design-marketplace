@@ -3,7 +3,7 @@ name: shadcn
 description: Procédure verrouillée pour reproduire / étendre / créer des écrans Figma avec le design system Swile « 🏢 Flõw | Corporate » (shadcn), via le MCP figma-console (Desktop Bridge). UNIQUEMENT pour ce DS, via la commande /swile-design:shadcn (jamais en auto-déclenchement).
 ---
 
-# Swile Test — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
+# swile-design — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
 
 **Conception** : sous pression tu suis les gates mécaniques et tu zappes la prose — prouvé sur ~30 sessions, RE-prouvé au run du 07/07 (tout ce qui a tenu était scripté, tout ce qui a cassé était de la prose). Donc : chaque décision à risque passe par **un script fourni qui sort un artefact**, chaque écart passe par **un registre**, et la fin d'un écran passe par **une réconciliation bloquante**. « Fait » sans l'artefact = interdit. Les scripts retournent leurs preuves — colle leurs sorties, ne les résume pas. **Un artefact "vert" ne vaut que ce que sa couverture vaut** : c'est `reconcile()` qui prouve la couverture, pas ton affirmation.
 
@@ -23,7 +23,7 @@ description: Procédure verrouillée pour reproduire / étendre / créer des éc
 
 Plugin **Desktop Bridge** requis dans 3 fichiers : travail, DS **« 🏢 Flõw | Corporate »** (`4PbwFAfHhSgQXG9jAZL2EE`), icônes **« 🗂️ Flõw | Library »** (`gZnTctmu6pjs7IJpVls3gR`).
 
-1. **Un seul serveur** : `figma_get_status` → `otherInstances` **vide** (aggravant : `portFallbackUsed:true`). Sinon, avec accord user : `taskkill /PID <pid> /F`. ⚠️ **Tuer les orphelins AVANT toute réouverture du plugin** (scan des ports 9223→9232 → rattachement à un orphelin).
+1. **Un seul serveur** : `figma_get_status` → `otherInstances` **vide** (aggravant : `portFallbackUsed:true`). Sinon, avec accord user — Windows (PowerShell) : `taskkill /PID <pid> /F` · macOS/Linux : `kill -9 <pid>`. ⚠️ **Tuer les orphelins AVANT toute réouverture du plugin** (scan des ports 9223→9232 → rattachement à un orphelin).
 2. **Bridge répond** : boucle `figma_get_status` (`probe:true`) jusqu'à `probeResult.success===true`. `false` après ~15 s → STOP : « ferme et rouvre le plugin sur <fichier>, puis dis-moi ok. »
 3. **3 fichiers connectés** : `figma_list_open_files`. Manquant → STOP.
 4. **DS abonnée** (cible = fichier de travail) : `getAvailableLibraryVariableCollectionsAsync()` liste des collections « Corporate ». Sinon STOP → Assets > Libraries. *(PAS `figma_get_library_variables`.)*
@@ -35,17 +35,17 @@ Plugin **Desktop Bridge** requis dans 3 fichiers : travail, DS **« 🏢 Flõw |
 globalThis.MAPPING=[]; globalThis.LEDGER=[]; globalThis.SWAPS=[]; globalThis.RESIZES=[];
 return 'registres prêts';
 ```
-**Marqueur de run (pour le hook de gate)** : écris (outil Write) le fichier `.swile-run.lock` à la racine du répertoire de travail — contenu : `{"demarre":"<ecrans demandés>"}`. Ces deux fichiers de travail (`.swile-run.lock`, `.swile-verify.json`) sont les SEULS fichiers locaux que tu crées/modifies, et tu les tiens à jour scrupuleusement : le hook bloque la fin de tour dessus.
+**Marqueur de run + sentinelle (pour le hook de gate)** : écris (outil Write), à la racine du répertoire de travail : `.swile-run.lock` = `{"demarre":"<ecrans demandés>"}` **et** `.swile-verify.json` = `{"etat":"en_cours","ecrans":{},"clean":false}`. Le hook bloque toute fin de tour tant que `etat:"en_cours"` / `clean:false` — états qui laissent sortir : `en_attente_verdict` (STOP témoin, §2.6), `bloque` (panne exigeant l'user — ajoute `motif`), `fini` (rapport livré, avec `clean:true`). Ces trois fichiers de travail (`.swile-run.lock`, `.swile-verify.json`, `.swile-state.json`) sont les SEULS fichiers locaux que tu crées/modifies, et tu les tiens à jour scrupuleusement.
 
 ---
 
 ## 1. Interdits absolus & modes de panne
 
 **Interdits (chaque violation a cassé un run réel)** :
-- `timeout:30000` sur **tout** call contenant un import (le défaut 5 s coupe l'import → fige le worker). Plafond dur figma_execute : 30 s.
+- `timeout:30000` sur **tout** call contenant un import (le défaut 5 s coupe l'import → fige le worker) **et sur tout walk d'arbre complet d'écran** (dumpSource/verify/compareToSource/textDiff sur une racine — mesuré jusqu'à ~15 s). Plafond dur figma_execute : 30 s.
 - Jamais : `Promise.all` d'imports · import + build même call (clés non cachées) · boucle d'import `await`-ée · `importComponentSetByKeyAsync` · `loadAllPagesAsync()` sur le DS · `figma_instantiate_component` / `figma_search_components` / `figma_get_library_variables`.
 - **`.resize()` sur une INSTANCE = interdit** → `rescaleInst()` (§2.4) exclusivement, read-back obligatoire.
-- **Swap d'icône « nu » = interdit** → `swapIcon()` (§2.4) exclusivement (swap + recolor + read-back + registre en un call).
+- **Swap d'icône « nu » = interdit** — y compris via `setProperties` sur une prop INSTANCE_SWAP (boutons à icône) → `swapIcon()` (§2.4) exclusivement (swap + recolor + read-back + registre en un call).
 - **`counterAxisSizingMode='AUTO'` (hug) sur le frame RACINE d'un écran = interdit.** Un « contenu déborde » se corrige en **bissectant** (poste la table des hauteurs enfants repro vs source, corrige l'enfant fautif) — JAMAIS en aggrandissant/huggant le parent pour éteindre le flag.
 - **Ne renomme JAMAIS une instance de composant DS** (son nom = son lien au composant dans Figma ; le sens se porte sur la frame parente ; tes scripts s'ancrent par **id**, pas par nom).
 - **Tout fix déclenché par verify** retourne dans le MÊME call le read-back layout complet du nœud corrigé (`{layoutMode, primaryAxisAlignItems, itemSpacing, sizing H/V}`) — un re-scan count seul ne valide RIEN (deux patchs destructeurs induits par verify au run du 07/07 : root passé en hug, space-between écrasé).
@@ -148,6 +148,7 @@ globalThis.sonde = async (pageNameRe, candidates, sourceHex, sourceStroke) => {
 };
 ```
 `fillOpacity` < ~15 % ≈ invisible sur blanc. Égalité au fond → départage par stroke/opacité/page d'usage, ou demande. Toute ligne d'annexe utilisée au mapping doit apparaître dans les mesures, sinon « annexe non confirmée » au LEDGER. Après la sonde : **mets à jour MAPPING (statut 'SONDE'→'DS' + choix mesuré)**.
+**🟥 Annexe contredite par la mesure** (clé qui n'importe plus, set/variante introuvable, valeur différente) → affiche EN TÊTE de ta réponse : « 🟥 **SNAPSHOT/ANNEXE DS PÉRIMÉ — préviens Romain** : <ligne contredite : mesuré vs annexe> », consigne-le au LEDGER (`type:'ANNEXE-PERIMEE'`) et au RETEX (§2.7), et continue avec la valeur **mesurée**.
 
 **WARM-UP (testé)** — construis `COMP_KEYS`/`VAR_KEYS`/`STYLE_KEYS` (`[['nom','clé'],…]`) depuis mapping+sonde+annexe (composants ET icônes ET tokens dimension), puis (call `timeout:30000`) :
 ```js
@@ -210,6 +211,7 @@ globalThis.swapIcon = async (instId, swapPropOuNull, iconCompId, varIdCouleur, h
 };
 ```
 - Occurrences répétées : 1ʳᵉ via cache+`createInstance`, suivantes **clonées** — puis **relis la ligne source correspondante** et applique ses champs variables (badge, pastille, contenu). **La donnée commande le modèle, jamais l'inverse** (interdiction d'inventer des initiales/contenus pour remplir un gabarit — ligne 9 du 07/07).
+- **Textes : copie la chaîne exacte relue sur le nœud source au moment d'écrire** (`characters` complet — le `txt` du dump est tronqué à 40 caractères) ; jamais retapée de mémoire (accents/typos).
 - Props lues sur l'instance avant `setProperties` ; sous-éléments parasites désactivés ; **ne bidouille jamais en dur** (rendu faux = mauvaise variante).
 - Élément sur fond coloré (checkbox sur header gris) → fill blanc explicite. Cellule = largeur de son contenu ; `strokeAlign='INSIDE'` ; conteneur source à fond+padding → reproduis-le.
 - Le DS documente un pattern (showcase) → copie-le ; pas de détournement d'état SAUF documenté par le DS (nav Ghost enabled/hover, annexe A).
@@ -260,28 +262,33 @@ globalThis.verify = async (rootId) => {
 ```
 **Passe 2 — `compareToSource(pairs)`.** En convert, **chaque paire porte un `sourceId` de PREMIER NIVEAU** (id imbriqué toxique → remonte au parent, le script descend seul) ; impossible → `expect.dims:{w,h}` lus dans le dump est **obligatoire** (paire sans sourceId ni dims = ligne sans paire pour reconcile). **Paires minimales par écran : la RACINE (root↔root)** + un frame structurant par zone (nav, table, sidebar) + chaque type distinct + première ET dernière occurrence de chaque groupe répété + une paire par entrée SWAPS (avec `icon.expectedHex`) + toute instance dont la taille rendue ≠ celle du master.
 ```js
+globalThis.insideCloneCS = n=>{let p=n;while(p&&p.type!=='PAGE'){if(p.name==='sidebar (cloné)')return true;p=p.parent;}return false;};
 globalThis.readNode = async (id) => { const n=await figma.getNodeByIdAsync(id); if(!n) return {missing:true,id};
   const toHex=c=>'#'+[c.r,c.g,c.b].map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');
   const r={name:n.name, w:Math.round(n.width), h:Math.round(n.height)};
   if(n.layoutMode&&n.layoutMode!=='NONE') r.align=n.primaryAxisAlignItems;
   let best=null,ba=-1;
   for(const x of [n,...('findAll'in n?n.findAll(()=>true):[])]){ if(x.visible===false) continue;
+    if(x.type==='TEXT'&&n.type!=='TEXT') continue;   // fill d'un TEXT = couleur de glyphe, pas un fond (faux « bg » sinon)
     if(Array.isArray(x.fills)) for(const p of x.fills) if(p.type==='SOLID'&&p.visible!==false){const a=x.width*x.height; if(a>ba){ba=a;best=p;}} }
   if(best){ const c=best.color; r.bgHex=toHex(c); const bv=best.boundVariables&&best.boundVariables.color;
     const vv=bv?await figma.variables.getVariableByIdAsync(bv.id):null; r.bgVar=vv?vv.name:null; }
   if('componentProperties'in n&&n.componentProperties){const vp={};for(const [k,d] of Object.entries(n.componentProperties))if(d.type==='VARIANT')vp[k]=d.value;if(Object.keys(vp).length)r.variant=vp;}
-  if('findAll'in n){ const vec=n.findAll(x=>x.type==='VECTOR'&&x.visible!==false&&((Array.isArray(x.fills)&&x.fills.some(p=>p.type==='SOLID'&&p.visible!==false))||(Array.isArray(x.strokes)&&x.strokes.length)))[0];
+  if('findAll'in n){ const vec=n.findAll(x=>x.type==='VECTOR'&&x.visible!==false&&!insideCloneCS(x)&&((Array.isArray(x.fills)&&x.fills.some(p=>p.type==='SOLID'&&p.visible!==false))||(Array.isArray(x.strokes)&&x.strokes.length)))[0];
     if(vec){ const p=(Array.isArray(vec.fills)&&vec.fills.find(q=>q.type==='SOLID'&&q.visible!==false))||(Array.isArray(vec.strokes)&&vec.strokes.find(q=>q.type==='SOLID')); if(p) r.glyphHex=toHex(p.color); }
-    r.texts=n.findAll(x=>x.type==='TEXT'&&x.visible!==false).map(t=>t.characters).join('|').slice(0,120); }
+    r.texts=n.findAll(x=>x.type==='TEXT'&&x.visible!==false&&!insideCloneCS(x)).map(t=>t.characters).join('|').slice(0,120); }   // clone exclu (couvert par le read-back triple §2.1)
   return r; };
 globalThis.compareToSource = async (pairs) => {
   const h2=h=>{h=h.replace('#','');return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16));};
   const dist=(a,b)=>Math.round(Math.hypot(...a.map((v,i)=>v-b[i])));
   const out={ fichierActif: figma.root.name, pairs: [] };
   for(const p of pairs){
-    const A=await readNode(p.reproId); const B=p.sourceId?await readNode(p.sourceId):null; const diffs=[];
+    const A=await readNode(p.reproId); const B=p.sourceId?await readNode(p.sourceId):null; const diffs=[], nearColors=[];
     if(A.missing) diffs.push('repro manquante'); if(B&&B.missing) diffs.push('source manquante');
-    if(B&&!B.missing){ if(A.bgHex!==B.bgHex) diffs.push('bg '+A.bgHex+' != '+B.bgHex);
+    if(B&&!B.missing){
+      if(A.bgHex!==B.bgHex){ const d=(A.bgHex&&B.bgHex)?dist(h2(A.bgHex.slice(1)),h2(B.bgHex.slice(1))):null;
+        if(d!==null&&A.bgVar&&p.expect&&p.expect.bgVar&&A.bgVar===p.expect.bgVar) nearColors.push({token:A.bgVar,repro:A.bgHex,source:B.bgHex,dist:d});   // token conforme au mapping = palette DS vs legacy → auto-LEDGER
+        else diffs.push('bg '+A.bgHex+' != '+B.bgHex+(d!==null?' (dist '+d+')':'')); }
       if(Math.abs(A.w-B.w)>1||Math.abs(A.h-B.h)>1) diffs.push('dims '+A.w+'x'+A.h+' != '+B.w+'x'+B.h);
       if(A.align&&B.align&&A.align!==B.align) diffs.push('align '+A.align+' != '+B.align);
       if(p.compareTexts&&A.texts!==B.texts) diffs.push('texts "'+A.texts+'" != "'+B.texts+'"'); }
@@ -291,13 +298,14 @@ globalThis.compareToSource = async (pairs) => {
     if(p.icon&&p.icon.expectedHex){ if(!A.glyphHex) diffs.push('glyphe INTROUVABLE (swap raté ?)');
       else if(A.glyphHex.toLowerCase()!==p.icon.expectedHex.toLowerCase()) diffs.push('glyphe '+A.glyphHex+' != '+p.icon.expectedHex); }
     if(A.glyphHex&&A.bgHex&&dist(h2(A.glyphHex.slice(1)),h2(A.bgHex.slice(1)))<50) diffs.push('CONTRASTE: glyphe '+A.glyphHex+' quasi invisible sur fond '+A.bgHex);
-    out.pairs.push({label:p.label, ok:diffs.length===0, diffs});
+    out.pairs.push({label:p.label, ok:diffs.length===0, diffs, nearColors});
   }
   out.clean = out.pairs.every(p=>p.ok);
   return out;
 };
 ```
 Écart **attendu** (compromis au LEDGER) → cite l'entrée LEDGER ; inexpliqué → corrige.
+**`nearColors`** = fond différent mais **token conforme au mapping** (`expect.bgVar`) : palette DS vs palette legacy, auto-classé — recopie chaque entrée au LEDGER `{type:'NEAR-COLOR (auto)'}`, aucune question user. Toute paire dont le fond vient d'un token du mapping DOIT porter `expect.bgVar` (sans lui, l'écart reste un diff à corriger). La classification se fonde sur la conformité du token, **JAMAIS sur un seuil de distance** (mesuré sur le run validé du 07/07 : résidus légitimes jusqu'à dist **59** — `theme/success` —, bug historique à dist 35 : aucun seuil ne les sépare). `compareTexts` : le clone sidebar est exclu côté repro → réserve-le aux sous-zones hors sidebar (l'écran entier est couvert par textDiff).
 **Passe 3 — `textDiff` : aucun texte source ne disparaît.**
 ```js
 // VALIDÉ sur COLLAB raté du 07/07 : a sorti 16 manquants réels (badge "En attente d'activation", sous-titre d'alerte, "+2", 6 noms+emails de lignes clonées non re-remplies)
@@ -330,14 +338,18 @@ Un ❌ ou « pas vérifiable » = écran non validé.
 **Si un script throw** : hardening minimal en session (try/catch par nœud, erreurs DANS l'artefact) ; sinon read-back tabulaire de substitution + écran marqué « non vérifié mécaniquement » (STOP ne se franchit qu'avec ok user) + remonte l'erreur exacte.
 
 ### 2.6 STOP témoin (pré-validation), puis la série
-**Checkpoint après chaque écran vérifié** : `figma.saveVersionHistoryAsync('<écran> vérifié')` **+ mets à jour la sentinelle `.swile-verify.json`** (outil Write) : `{"ecrans":{"<nom>":{"verify":<count>,"reconcile":<ok>,"textDiff":<nb manquants non gatés>}}, "clean":<true si TOUS les écrans finis sont à verify:0 + reconcile:true + textDiff gaté>}`. Écran en cours non fini = `clean:false`.
+**Checkpoint après chaque écran vérifié** : `figma.saveVersionHistoryAsync('<écran> vérifié')` **+ mets à jour sentinelle et état persisté** (outil Write) :
+- `.swile-verify.json` : `{"etat":"…","ecrans":{"<nom>":{"verify":<count>,"reconcile":<ok>,"textDiff":<nb manquants non gatés>}},"clean":<true si TOUS les écrans finis sont à verify:0 + reconcile:true + textDiff gaté>}`. **Transitions d'`etat`** : `en_cours` pendant le travail (écran non fini = `clean:false`) → `en_attente_verdict` juste avant le STOP témoin → retour `en_cours` à la reprise de la série → `bloque` (+`motif`) si une panne exige l'user → `fini` + `clean:true` au rapport. Le hook bloque toute fin de tour en `en_cours`.
+- `.swile-state.json` (reprise après crash / nouvelle session) : `{MAPPING, LEDGER, SWAPS, RESIZES, COMP_KEYS, VAR_KEYS, STYLE_KEYS, roots:{"<écran>":{sourceId, reproId}}}` — les **clés** d'import, jamais les node-ids de composants importés (instables).
 **GATE témoin (préférence, actif par défaut)** : poste témoin + les 4 artefacts + checklist + capture → **STOP, attends la pré-validation user**. Ne repose aucune question technique — uniquement les préférences non encore tranchées.
 - **Erreurs** → corrige (procédure complète, §2.7), écran suivant seul → re-STOP.
 - **OK** → série écran par écran, **mêmes 4 artefacts + checklist POSTÉS pour chacun**. Point d'étape tous les 2-3 écrans : tableau `écran → {verify.count, pairs, textDiff.manquants, reconcile.ok}` + **LEDGER complet ré-affiché**. Nouvel élément mi-série → re-§0.1 + import isolé (pattern warm-up, timeout 20 s) ; pend → §3 AVANT de poser. Envie de simplifier → GATE skip.
 
 ### 2.7 Corriger, puis rapport
 **Corriger** = repasser la procédure (règles → read-back layout du nœud touché dans le même call → re-scan → re-compare) — jamais un patch pour éteindre un flag.
-**Rapport final = les registres, pas ta mémoire** : la table Compromis/Skips est `return globalThis.LEDGER` collé tel quel (reconstruction interdite — 5 compromis perdus au 07/07) + le reconcile final de chaque écran + customs avec preuves + lignes annexe non confirmées + récap. **Un blocage technique déguisé en compromis = rejeté** ; un skip sans OK user dans le transcript = rejeté. Rapport livré → sentinelle `clean:true` finale puis **supprime `.swile-run.lock`** (fin du gate).
+**Rapport final = les registres, pas ta mémoire** : la table Compromis/Skips est `return globalThis.LEDGER` collé tel quel (reconstruction interdite — 5 compromis perdus au 07/07) + le reconcile final de chaque écran + customs avec preuves + lignes annexe non confirmées + récap. **Un blocage technique déguisé en compromis = rejeté** ; un skip sans OK user dans le transcript = rejeté. Rapport livré → sentinelle `{"etat":"fini","clean":true}` puis **supprime `.swile-run.lock`** (fin du gate).
+
+**RETEX (conditionnel, automatique, après le dernier rendu)** : SI le run contient au moins un axe d'amélioration — erreur signalée par l'user, panne §3 rencontrée, règle du skill prise en défaut, alerte 🟥 annexe périmée — dépose un fichier `retex-AAAA-MM-JJ-<user>-<fichier>.md` dans le dossier Drive d'équipe : connecteur **Google Drive** (cherche l'outil `create_file` via ToolSearch), dossier id `1-OckHhzBv4lmgte9t-x6YJna_1nh71nq`. Contenu : erreurs signalées + LEDGER complet + pannes rencontrées + « ce qui manquait au skill ». **Si tout s'est bien passé : pas de RETEX.** Connecteur Drive absent → propose à l'user : le connecter (Settings → Connectors) OU envoyer lui-même le fichier à Romain. Le RETEX n'empêche jamais la clôture du run.
 
 ---
 
@@ -346,7 +358,7 @@ Un ❌ ou « pas vérifiable » = écran non validé.
 2. **Canal empoisonné** (warm-up OU mi-série) → re-§0.1 (**orphelins AVANT réouverture**), puis « ferme et rouvre le plugin (3 fichiers) ». Ensuite : re-§0 → **§3.5** → **relance le warm-up immédiatement** (cache instantané ; le canal frais se re-dégrade en minutes).
 3. **Encore empoisonné** → restart complet de Figma Desktop + re-§0 + warm-up.
 4. `figma_reconnect`/`figma_reload_plugin` **ne débloquent pas**.
-5. **Intégrité après tout restart/reconnexion** : chaque écran construit → `getNodeByIdAsync` PUIS `verify` (count:0) PUIS re-lecture des dims racine vs source. Reverté → reconstruis (procédure complète). Témoin validé perdu : le verdict tient si le témoin reconstruit re-passe compare, sinon re-STOP.
+5. **Intégrité après tout restart/reconnexion/nouvelle session** : si les registres sont vides et que `.swile-state.json` existe → recharge-le (outil Read), recrée les registres en un call (`globalThis.MAPPING=[…]; …`), relance le warm-up depuis les clés persistées (cache : quasi instantané). Puis chaque écran construit → `getNodeByIdAsync` PUIS `verify` (count:0) PUIS re-lecture des dims racine vs source. Reverté → reconstruis (procédure complète). Témoin validé perdu : le verdict tient si le témoin reconstruit re-passe compare, sinon re-STOP.
 6. **« Unable to establish connection »** → probe `1+1`. Probe OK : retente 1× ; échec persistant sur le même id = nœud toxique → parent + `findAll` ; gros script refusé → découpe en 2 calls. Probe KO → §0.
 7. Import textes/couleurs durablement impossible → l'user colle les frames « Typography »/« Colors » du DS ; lis les ids, mappe par nom, applique, supprime.
 
@@ -369,7 +381,7 @@ Un ❌ ou « pas vérifiable » = écran non validé.
 | Pastilles/compteurs sur icônes | **custom à la main, pré-justifié** (mail/pastille grise · user/violet #664ef9 · compteur) — à reproduire **par ligne selon le dump** | jamais cloné ; jamais simplifié sans GATE |
 | Statut « en attente/pending » | suit la **couleur mesurée de la source** (texte simple = texte simple) | JAMAIS `Info` bleu par défaut |
 
-**Pièges DS** : `theme/primary` = noir #171717, PAS violet · boutons max `lg` h40 · `theme/muted` canvas · `theme/card` carte · `theme/border` bordures · `foreground`/`muted-foreground` textes · Avatar = Initials/Image × Circle · Alert Soft ≠ Solid (props différentes → lire sur l'instance).
+**Pièges DS** : `theme/primary` = noir #171717, PAS violet · boutons max `lg` h40 · `theme/muted` canvas · `theme/card` carte · `theme/border` bordures · `foreground`/`muted-foreground` textes · Avatar = Initials/Image × Circle · Alert Soft ≠ Solid (props différentes → lire sur l'instance) · **Select : intérieur du master verrouillé à 288 px** → pose l'instance dans un wrapper custom à largeur fixe (le resize direct ne tient pas).
 
 **Variables theme (« ☀️ Mode »)** : `background` 36d8943d0eb5c32d238a3dbe660f2d87f3f8df1d · `foreground` da9243f78b70a8ebe13306dc7916644bbd6032ca · `muted` 1a1c4fb51130fc6ac02bd86235145f4bf680e19a · `muted-foreground` 5608ad047b43e73345fd27d068601055ecef7f39 · `card` bf87620e38d9c9f825dcc342a3ae92f6b408236b · `border` ad89e5c8830e88a9cad5c7b7a0d92b2d1f4f4839 · `primary` 1b18ade61d046a487e4979cf8f380a8ef49d692b · `primary-foreground` 6da70a3468f722f3ca072e4d6d99c6a4ab3995e5 · `secondary` 38a4db465d1d3aa4f591c9a996fda92687667bcb · `accent` 361675c5f04130e691273ce02fbace92ae529031 · `info` 755d67b7cf2a27c5ccc8c2318af283a0a31bdc1b · `success` cfc6b1fa897ef27dd5a08e0912fac9ddbd8d0d52 · `destructive` e5beee398ba3a66ebbc815b21291b5431d31a7ce
 
