@@ -8,14 +8,22 @@ Dans Claude : **Settings → Plugins → Add marketplace** → coller :
 ```
 https://github.com/romainswile/swile-design-marketplace
 ```
-→ installer **swile-design**, puis activer les mises à jour automatiques (une fois) : `/plugin` → **Marketplaces** → `swile-marketplace` → **Enable auto-update**. Le pont Figma (MCP figma-console) est inclus et démarre tout seul ; le plugin se mettra ensuite à jour à chaque démarrage. (Filet de sécurité : même sans ça, le skill vérifie sa version à chaque lancement et vous propose la mise à jour.)
+→ installer **swile-design**. C'est tout : le pont Figma (MCP figma-console) est inclus et démarre tout seul, et le skill se met à jour **automatiquement** (il vérifie sa version à chaque lancement, se met à niveau si besoin et active l'auto-update pour les fois suivantes — rien à faire).
 
 ## Utilisation
 
 1. Ouvrir Figma avec le plugin **Figma Desktop Bridge** lancé (Plugins → Development) dans : votre fichier de travail + le DS « 🏢 Flõw | Corporate » + la librairie « 🗂️ Flõw | Library »
-2. Dans une nouvelle session Claude :
+2. Dans une nouvelle session Claude, choisir son mode :
+
+| Commande | Usage |
+|---|---|
+| `/swile-design:shadcn convert` | Reproduire des écrans actuels vers shadcn |
+| `/swile-design:shadcn update` | Étendre ou modifier des écrans shadcn existants |
+| `/swile-design:shadcn create` | Créer de nouveaux écrans from scratch en partant directement de shadcn |
+
+Exemple :
 ```
-/swile-design:shadcn convert les sections <...> du fichier "<votre fichier>"
+/swile-design:shadcn convert les écrans des sections "LISTE", "CONFIGURATION" et "FORM" du projet politique (page : parametres) sans le menu de gauche (copie/colle celui de la source)
 ```
 Astuce : mettez tous vos écrans dans le même run (la préparation se paie une seule fois).
 
