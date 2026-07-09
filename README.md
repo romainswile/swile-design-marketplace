@@ -1,19 +1,35 @@
-# swile-design — reproduction d'écrans Figma vers le DS « 🏢 Flõw | Corporate »
+# swile-design
 
-Plugin Claude Code/Desktop. Une fois installé, tout est automatique — et le skill vérifie lui-même à chaque lancement qu'il est à jour.
+**Reproduction d'écrans Figma vers le design system « 🏢 Flõw | Corporate » (shadcn)** — plugin Claude Code/Desktop. Une fois installé, tout est automatique : le skill vérifie lui-même à chaque lancement qu'il est à jour et se met à niveau si besoin.
 
-## Installation (une fois, ~1 minute — aucun compte requis)
+---
 
-Dans Claude : **Settings → Plugins → Add marketplace** → coller :
+## 🚀 Installation (une fois, ~1 minute — aucun compte requis)
+
+Selon votre version de Claude, le menu d'accès diffère :
+
+**Vous avez la dernière version de Claude :**
+
+> **Settings** → **Plugins** → **Add** → **Add marketplace** → collez le lien ci-dessous → **Sync** → cliquez sur le **« + »** à droite de la carte **Swile Design**
+
+**Vous avez une version plus ancienne** *(le plus probable : mises à jour bloquées sur nos Mac)* :
+
+> **Settings** → **Connectors** → **Customize** → le **« + »** à droite de **Personal plugins** (menu de gauche) → **Add** → **Add marketplace** → collez le lien ci-dessous → **Sync** → cliquez sur le **« + »** à droite de la carte **Swile Design**
+
+Le lien à coller dans les deux cas :
 ```
 https://github.com/romainswile/swile-design-marketplace
 ```
-→ installer **swile-design**. C'est tout : le pont Figma (MCP figma-console) est inclus et démarre tout seul, et le skill se met à jour **automatiquement** (il vérifie sa version à chaque lancement, se met à niveau si besoin et active l'auto-update pour les fois suivantes — rien à faire).
 
-## Utilisation
+C'est tout : le pont Figma (MCP figma-console) est inclus et démarre tout seul, et les mises à jour sont automatiques (le skill s'en charge à chaque lancement).
 
-1. Ouvrir Figma avec le plugin **Figma Desktop Bridge** lancé (Plugins → Development) dans : votre fichier de travail + le DS « 🏢 Flõw | Corporate » + la librairie « 🗂️ Flõw | Library »
-2. Dans une nouvelle session Claude, choisir son mode :
+---
+
+## 🎨 Utilisation
+
+**1.** Ouvrir Figma avec le plugin **Figma Desktop Bridge** lancé (Plugins → Development) dans les 3 fichiers : votre fichier de travail · le DS « 🏢 Flõw | Corporate » · la librairie « 🗂️ Flõw | Library »
+
+**2.** Dans une **nouvelle session** Claude, choisir son mode :
 
 | Commande | Usage |
 |---|---|
@@ -25,15 +41,17 @@ Exemple :
 ```
 /swile-design:shadcn convert les écrans des sections "LISTE", "CONFIGURATION" et "FORM" du projet politique (page : parametres) sans le menu de gauche (copie/colle celui de la source)
 ```
-Astuce : mettez tous vos écrans dans le même run (la préparation se paie une seule fois).
 
-3. En fin de session, si des points d'amélioration ou des erreurs ont été relevés, un rapport est déposé automatiquement dans le dossier Drive de l'équipe (connecteur Google Drive requis — si absent, le skill vous proposera de le connecter ou d'envoyer le rapport à Romain).
+💡 **Astuce** : mettez tous vos écrans dans le même run — la préparation se paie une seule fois.
+
+**3.** En fin de session, si des points d'amélioration ou des erreurs ont été relevés, un rapport est déposé automatiquement dans le dossier Drive de l'équipe (connecteur Google Drive requis — si absent, le skill vous proposera de le connecter ou d'envoyer le rapport à Romain).
 
 ⚠️ Si le skill affiche une alerte **« SNAPSHOT/ANNEXE DS PÉRIMÉ »** : prévenez Romain.
 
 ---
+
 <details>
-<summary>Dépannage : installer sans le menu Plugins</summary>
+<summary>🔧 Dépannage : installer sans les menus</summary>
 
 CLI : `/plugin marketplace add romainswile/swile-design-marketplace` puis `/plugin install swile-design@swile-marketplace`
 

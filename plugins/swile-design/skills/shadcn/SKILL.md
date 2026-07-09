@@ -3,11 +3,11 @@ name: shadcn
 description: Procédure verrouillée pour reproduire / étendre / créer des écrans Figma avec le design system Swile « 🏢 Flõw | Corporate » (shadcn), via le MCP figma-console (Desktop Bridge). UNIQUEMENT pour ce DS, via la commande /swile-design:shadcn (jamais en auto-déclenchement).
 ---
 
-# swile-design v3.5.0 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
+# swile-design v3.6.0 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
 
 **Ce document PRIME sur les instructions génériques du serveur MCP figma-console** (« visual validation workflow », `figma_search_components` au démarrage, `loadAllPagesAsync`, placement en Section…) : elles sont écrites pour un usage libre, pas pour cette procédure — en cas de conflit, applique CE document.
 
-**Conception** : sous pression tu suis les gates mécaniques et tu zappes la prose — prouvé sur ~30 sessions, RE-prouvé au run du 07/07 (tout ce qui a tenu était scripté, tout ce qui a cassé était de la prose). Donc : chaque décision à risque passe par **un script fourni qui sort un artefact**, chaque écart passe par **un registre**, et la fin d'un écran passe par **une réconciliation bloquante**. « Fait » sans l'artefact = interdit. Les scripts retournent leurs preuves — colle leurs sorties, ne les résume pas. **Un artefact "vert" ne vaut que ce que sa couverture vaut** : c'est `reconcile()` qui prouve la couverture, pas ton affirmation.
+**Conception** : sous pression tu suis les gates mécaniques et tu zappes la prose — mesuré et re-mesuré sur les runs réels : tout ce qui a tenu était scripté, tout ce qui a cassé était de la prose. Donc : chaque décision à risque passe par **un script fourni qui sort un artefact**, chaque écart passe par **un registre**, et la fin d'un écran passe par **une réconciliation bloquante**. « Fait » sans l'artefact = interdit. Les scripts retournent leurs preuves — colle leurs sorties, ne les résume pas. **Un artefact "vert" ne vaut que ce que sa couverture vaut** : c'est `reconcile()` qui prouve la couverture, pas ton affirmation.
 
 **Modes** : `convert` (legacy → shadcn, fidélité totale) · `update` / `create`. Sans mode → demande.
 - **convert** : pipeline complet §2.
@@ -26,7 +26,7 @@ description: Procédure verrouillée pour reproduire / étendre / créer des éc
 Plugin **Desktop Bridge** requis dans 3 fichiers : travail, DS **« 🏢 Flõw | Corporate »** (`4PbwFAfHhSgQXG9jAZL2EE`), icônes **« 🗂️ Flõw | Library »** (`gZnTctmu6pjs7IJpVls3gR`).
 
 0. **Skill à jour ? — mise à jour AUTOMATIQUE, sans question à l'user** : `curl -s https://raw.githubusercontent.com/romainswile/swile-design-marketplace/master/.claude-plugin/marketplace.json` → compare `version` à celle du titre de ce document. Plus récente → exécute directement `claude plugin marketplace update swile-marketplace && claude plugin update swile-design@swile-marketplace`, puis informe en une ligne : « ⬆️ plugin swile-design mis à jour vA.B.C → vX.Y.Z — effectif à ta prochaine session ; on continue avec la version courante » et **continue le run** (la version chargée ne change pas en cours de session ; si l'écart est de version MAJEURE, recommande de redémarrer avant de construire). Anti-fausse-alerte : si `claude plugin list` montre l'installée = distante, c'est le redémarrage qui manque — dis-le, ne relance pas l'update. **Auto-guérison (une fois)** : si `~/.claude/settings.json` → `extraKnownMarketplaces.swile-marketplace` existe sans `"autoUpdate": true`, ajoute la clé (préserve le reste du fichier) — les prochains démarrages se mettront à jour nativement sans ce check. `claude` introuvable (rare) → donne à l'user `/plugin marketplace update swile-marketplace` puis `/plugin` → Installed → update. Pas de réseau/curl → continue sans bloquer.
-1. **Un seul serveur** : `figma_get_status` → **`portFallbackUsed` DOIT être `false`** (et `otherInstances` vide s'il est présent — champ absent des sorties récentes : ne conclus jamais « pas d'orphelin » de son absence). `portFallbackUsed:true` = un autre serveur tient le port préféré → inventaire (`lsof -i :9223-9232` / `netstat -ano`) et kill des orphelins, PAS un caveat à noter (session Mac du 08/07 : ignoré au setup → 3 serveurs concurrents → 1ʳᵉ panne à T+2 min sans aucune action à risque). Demande à l'user (question à choix, **1ʳᵉ option : « Je les tue automatiquement (Recommandé) »**) puis — Windows (PowerShell) : `taskkill /PID <pid> /F` · macOS/Linux : `kill -9 <pid>`. ⚠️ **Tuer les orphelins AVANT toute réouverture du plugin** (scan des ports → rattachement à un orphelin).
+1. **Un seul serveur** : `figma_get_status` → **`portFallbackUsed` DOIT être `false`** (et `otherInstances` vide s'il est présent — champ absent des sorties récentes : ne conclus jamais « pas d'orphelin » de son absence). `portFallbackUsed:true` = un autre serveur tient le port préféré → inventaire (`lsof -i :9223-9232` / `netstat -ano`) et kill des orphelins, PAS un caveat à noter (mécanisme : plusieurs serveurs se disputent le websocket du plugin → déconnexions spontanées dès les premières minutes, sans aucune action à risque de ta part). Demande à l'user (question à choix, **1ʳᵉ option : « Je les tue automatiquement (Recommandé) »**) puis — Windows (PowerShell) : `taskkill /PID <pid> /F` · macOS/Linux : `kill -9 <pid>`. ⚠️ **Tuer les orphelins AVANT toute réouverture du plugin** (scan des ports → rattachement à un orphelin).
 2. **Bridge répond** : boucle `figma_get_status` (`probe:true`) jusqu'à `probeResult.success===true`. `false` après ~15 s → STOP : « ferme et rouvre le plugin sur <fichier>, puis dis-moi ok. »
 3. **3 fichiers connectés** : `figma_list_open_files`. Manquant → STOP.
 4. **DS abonnée** (cible = fichier de travail) : `getAvailableLibraryVariableCollectionsAsync()` liste des collections « Corporate ». Sinon STOP → Assets > Libraries. *(PAS `figma_get_library_variables`.)*
@@ -39,12 +39,12 @@ Plugin **Desktop Bridge** requis dans 3 fichiers : travail, DS **« 🏢 Flõw |
 
 `figma_navigate` switche la cible sans rien fermer. **Après CHAQUE navigate : probe trivial** (`return 1+1`) — timeout sur read trivial = divergence onglet/cible, pas une lenteur. Re-check le point 1 avant chaque phase d'import.
 
-**Registres de session** (à créer au setup, un seul call) — ⚠️ **chaque fichier Figma a son propre sandbox JS** : registres et helpers vivent dans le sandbox du **FICHIER DE TRAVAIL**. Ne pousse JAMAIS dans un registre pendant que la cible est le DS/Library (le push irait dans le mauvais sandbox et serait perdu, et `reconcile` pourrait passer au vert par vacuité) : collecte tes mesures, reviens sur le fichier de travail + probe, PUIS pousse. Après tout restart/réouverture : registres VIDES → recharge depuis `.swile-state.json` (§3.5).
+**Registres de session** (à créer au setup, un seul call) — ⚠️ **chaque fichier Figma a son propre sandbox JS** : registres et helpers vivent dans le sandbox du **FICHIER DE TRAVAIL**. Ne pousse JAMAIS dans un registre pendant que la cible est le DS/Library (le push irait dans le mauvais sandbox et serait perdu, et `reconcile` pourrait passer au vert par vacuité) : collecte tes mesures, reviens sur le fichier de travail + probe, PUIS pousse. Après tout restart/réouverture : registres VIDES → recharge depuis `.swile-state.json` (§3.5). **Dès le setup, écris aussi (Write, dans le scratchpad temporaire) un `helpers.js` contenant TOUS les helpers du skill** : le sandbox peut se réinitialiser SANS prévenir (reload du plugin, navigation, mémoire) — au premier `ReferenceError: <helper> is not defined`, ré-exécute `helpers.js` tel quel + recharge les registres depuis `.swile-state.json`, et reprends.
 ```js
 globalThis.MAPPING=[]; globalThis.LEDGER=[]; globalThis.SWAPS=[]; globalThis.RESIZES=[];
 return 'registres prêts, fichier: '+figma.root.name;   // DOIT être le fichier de travail
 ```
-**Marqueur de run + sentinelle (pour le hook de gate)** : écris (outil Write), à la racine du répertoire de travail : `.swile-run.lock` = `{"demarre":"<ecrans demandés>"}` **et** `.swile-verify.json` = `{"etat":"en_cours","ecrans":{},"clean":false}`. Le hook bloque toute fin de tour tant que `etat:"en_cours"` / `clean:false` — états qui laissent sortir : `en_attente_verdict` (STOP témoin, §2.6), `bloque` (panne exigeant l'user — ajoute `motif`), `fini` (rapport livré, avec `clean:true`). Ces trois fichiers de travail (`.swile-run.lock`, `.swile-verify.json`, `.swile-state.json`) sont les SEULS fichiers locaux que tu crées/modifies, et tu les tiens à jour scrupuleusement.
+**Marqueur de run + sentinelle (pour le hook de gate)** : écris (outil Write), à la racine du répertoire de travail : `.swile-run.lock` = `{"demarre":"<ecrans demandés>"}` **et** `.swile-verify.json` = `{"etat":"en_cours","ecrans":{},"clean":false}`. Le hook bloque toute fin de tour tant que `etat:"en_cours"` / `clean:false` — états qui laissent sortir : `en_attente_verdict` (STOP témoin, §2.6), `bloque` (panne exigeant l'user — ajoute `motif`), `fini` (rapport livré, avec `clean:true`). Ces trois fichiers de travail (`.swile-run.lock`, `.swile-verify.json`, `.swile-state.json`) sont, avec `helpers.js` du scratchpad, les SEULS fichiers locaux que tu crées/modifies, et tu les tiens à jour scrupuleusement.
 
 ---
 
@@ -54,14 +54,14 @@ return 'registres prêts, fichier: '+figma.root.name;   // DOIT être le fichier
 
 **Interdits (chaque violation a cassé un run réel)** :
 - Jamais : `Promise.all` d'imports · import + build même call (clés non cachées) · boucle d'import `await`-ée · `importComponentSetByKeyAsync` · `loadAllPagesAsync()` sur le DS · `figma_instantiate_component` / `figma_search_components` / `figma_get_library_variables`.
-- **Le SEUL cap autorisé autour d'un import** = le `withTimeout` 20 s PAR CLÉ de la boucle détachée du warm-up. Tout autre `Promise.race`/cap court « de diagnostic » autour d'un import = coupure interdite (la session Mac en a semé ~10, y compris APRÈS l'avoir elle-même diagnostiqué).
-- **Un call timeouté n'est PAS annulé** : l'exécution plugin continue et peut committer partiellement (row fantôme, frame à moitié posée — 3 cas mesurés). Après TOUT timeout d'un call de build : re-scan de la zone touchée AVANT de relancer, sinon doublons.
+- **Le SEUL cap autorisé autour d'un import** = le `withTimeout` 20 s PAR CLÉ de la boucle détachée du warm-up. Tout autre `Promise.race`/cap court « de diagnostic » autour d'un import = coupure interdite (mécanisme : la promesse coupée laisse l'import en vol dans le worker, qui finit par geler le canal pour toutes les clés non cachées).
+- **Un call timeouté n'est PAS annulé** : l'exécution continue et peut committer partiellement OU **en différé** (le re-scan immédiat dit « vide », le contenu apparaît après — doublons garantis au retry aveugle). Règle : nomme d'un **tag unique** les frames créées par chaque call de build (purge par tag possible) ; après un timeout, **attends ≥30 s** puis re-scan AVANT toute re-soumission.
 - **Budget par call de build : ~15 ops** (latence mesurée jusqu'à ~1 s/op sur canal chargé ; le transport coupe les gros calls à ~10 s en ignorant ton paramètre timeout). Gros build = série de micro-calls.
-- **`.resize()` sur une INSTANCE = interdit** → `rescaleInst()` (§2.4) exclusivement, read-back obligatoire.
+- **Redimensionner une instance à la main = interdit** → `sizeInst()` (§2.4) exclusivement. Mécanisme mesuré : `.rescale()` détache les text styles — irréparable, tout ré-attachement est un no-op silencieux de l'API — alors que `.resize()` **préserve le lien** ; le helper choisit le bon chemin.
 - **Swap d'icône « nu » = interdit** — y compris via `setProperties` sur une prop INSTANCE_SWAP (boutons à icône) → `swapIcon()` (§2.4) exclusivement (swap + recolor + read-back + registre en un call).
 - **`counterAxisSizingMode='AUTO'` (hug) sur le frame RACINE d'un écran = interdit.** Un « contenu déborde » se corrige en **bissectant** (poste la table des hauteurs enfants repro vs source, corrige l'enfant fautif) — JAMAIS en aggrandissant/huggant le parent pour éteindre le flag.
 - **Ne renomme JAMAIS une instance de composant DS** (son nom = son lien au composant dans Figma ; le sens se porte sur la frame parente ; tes scripts s'ancrent par **id**, pas par nom).
-- **Tout fix déclenché par verify** retourne dans le MÊME call le read-back layout complet du nœud corrigé (`{layoutMode, primaryAxisAlignItems, itemSpacing, sizing H/V}`) — un re-scan count seul ne valide RIEN (deux patchs destructeurs induits par verify au run du 07/07 : root passé en hug, space-between écrasé).
+- **Tout fix déclenché par verify** retourne dans le MÊME call le read-back layout complet du nœud corrigé (`{layoutMode, primaryAxisAlignItems, itemSpacing, sizing H/V}`) — un re-scan count seul ne valide RIEN (mécanisme : un « fix » peut détruire le layout en silence — racine passée en hug, space-between écrasé — et le re-scan dit quand même « vert »).
 - **Clé de VARIANTE, jamais de SET** ; 1 import/SET puis `setProperties`. Node-id importé instable → ré-importe par clé (cache ~150 ms). Ne ré-importe jamais une ressource locale ; **clone l'instance posée** pour les répétitions.
 - **Pendant un gel, les LECTURES passent** : probe sain ≠ imports sains.
 
@@ -84,7 +84,7 @@ return 'registres prêts, fichier: '+figma.root.name;   // DOIT être le fichier
 
 ### 2.1 Lis la source (convert)
 1 screenshot par écran (`figma_capture_screenshot`, scale ≤1, une fois — budget : 1 source + 1 côte-à-côte par cycle de vérif + 1 candidat-icône si comparaison de glyphe ; jamais de capture « pour voir »).
-**Tout relevé source DOIT passer par `dumpSource`** — un relevé ad hoc « texts-only » (`map(t=>t.characters)`) n'est PAS un artefact valide (il a produit une chip inventée au run du 07/07). Cellule anormale du dump (valeur vide, colonne décalée, dernière ligne atypique) → **re-dump ciblé** avant de construire.
+**Tout relevé source DOIT passer par `dumpSource`** — un relevé ad hoc « texts-only » (`map(t=>t.characters)`) n'est PAS un artefact valide (mécanisme : sans structure, une chaîne lue se réattribue au mauvais nœud → éléments inventés). Cellule anormale du dump (valeur vide, colonne décalée, dernière ligne atypique) → **re-dump ciblé** avant de construire.
 ```js
 // DUMP SOURCE v2 (align + noms de composants + textes). Découpe par zone si dense (maxDepth 2-3).
 globalThis.dumpSource = async (rootId, maxDepth) => {
@@ -111,7 +111,12 @@ globalThis.dumpSource = async (rootId, maxDepth) => {
 **Sidebar** : SEULE la sidebar (le chrome désigné) se clone (`node.clone()`), **contenu inclus, telle quelle**, nom exact `sidebar (cloné)` — ne vide/reconstruis JAMAIS l'intérieur du clone. Tout le RESTE de l'écran se reconstruit. **Read-back post-clone obligatoire** : `{sourceSidebarH, cloneH, rootH}` avec `cloneH ≤ rootH` et `|cloneH−sourceSidebarH| ≤ 1`, sinon STOP et corrige le shell (jamais la racine en hug). Re-vérifié en fin d'écran.
 
 ### 2.2 Mapping — TEMPLATES d'abord, puis tableau + registres + GATE
-**0) TEMPLATES D'ABORD (obligatoire, avant toute décision de mapping)** : navigate DS + probe → page **« Swile - Templates »** (exemples officiels Swile validés, alimentée en continu ; section suffixée « **- CONVERT** » = paire AVANT (OLD) / APRÈS (SHADCN), sinon = shadcn from scratch). Scan scripté posté : sections + frames de premier niveau (noms/dims). Pour chaque écran demandé et chaque ligne de mapping, cherche la correspondance (même type d'écran/élément). **Si un template couvre l'élément, sa solution S'IMPOSE** — mêmes composants/variantes/tokens/pattern, lus par `dumpSource` sur le template ; du custom présent dans un template se réplique à l'identique depuis son dump (jamais réinventé). C'est la cohérence inter-écrans de Swile : le template bat ta préférence.
+**0) TEMPLATES D'ABORD (obligatoire, avant toute décision de mapping)** : navigate DS + probe → page **« Swile - Templates »** (exemples officiels Swile, alimentée en continu). Convention : section `<ÉCRAN> - CONVERT` = frame `<ÉCRAN> - OLD` (source d'origine) + **COMPONENT publié `<ÉCRAN> - SHADCN`** ; sans suffixe = from scratch. Scan scripté posté : `findAllWithCriteria({types:['COMPONENT','COMPONENT_SET']})` → noms + **clés** + dims. Puis, du plus gros au plus petit :
+- **L'écran demandé correspond à un template SHADCN** → importe le COMPONENT par sa clé (au warm-up) et **pose l'instance** — chemin le plus fiable qui existe (fidélité maximale, zéro reconstruction) ; adapte le delta via props/overrides, chaque override au LEDGER.
+- **Un élément est couvert par un template** → clone-le depuis l'instance posée (ou réplique-le depuis le dump du template) — mêmes composants/variantes/tokens, jamais réinventé. Les instances de template sont aussi ta **mine de text styles** (harvest, §2.3).
+- **Rien ne correspond** → mapping classique ci-dessous.
+Le template bat ta préférence — c'est la cohérence inter-écrans de Swile. Chaque ligne MAPPING garde son champ `tpl`.
+**Le mapping couvre TOUS les écrans demandés AVANT le témoin** — pas seulement le premier (mécanisme : le canal d'import est au meilleur de sa forme en début de session et se dégrade avec le temps ; chaque import repoussé en cours de série s'expose au gel).
 **Artefact double** : le tableau lisible posté, ET sa forme machine dans le même call :
 ```js
 // une entrée par élément source, PAR ÉCRAN. statut: 'DS' | 'custom' | 'SONDE' (choix à mesurer)
@@ -119,18 +124,18 @@ globalThis.dumpSource = async (rootId, maxDepth) => {
 // statut 'custom' exige preuveCustom : réf. à l'artefact posté (templates sans correspondance + ≥2 synonymes ✦/showcases sans résultat)
 globalThis.MAPPING.push({ecran:'CODE', ligne:'bouton Add', src:'1:18932', choix:'Solid Button secondary/lg', statut:'DS', tpl:'aucun'});
 ```
-- Éléments proches = composants **distincts**. **Recoupe rendu + nom du nœud source + logique attendue** — la sonde mesure, elle **ne dispense pas de lire la source** (bordure visible → Outline candidat ; fond transparent → Ghost ; un même libellé sur 2 écrans ≠ même composant : **re-lis le nœud source de CET écran** avant de réutiliser une ligne de mapping ailleurs — la chip bleue du 07/07 vient de là).
+- Éléments proches = composants **distincts**. **Recoupe rendu + nom du nœud source + logique attendue** — la sonde mesure, elle **ne dispense pas de lire la source** (bordure visible → Outline candidat ; fond transparent → Ghost ; un même libellé sur 2 écrans ≠ même composant : **re-lis le nœud source de CET écran** avant de réutiliser une ligne de mapping ailleurs — sinon l'élément hérite du composant d'un autre écran).
 - **Test skip/compromis, appliqué AU MOMENT du choix** : élément ou propriété **visible** de la source absent de la repro = **SKIP, quel que soit le mot que tu emploies** → GATE (stop, préviens, demande, attends). Composant DS présent mais valeur divergente (token/taille au plus proche) = **compromis** → `LEDGER.push({ecran, element, type:'COMPROMIS', source:'…', choix:'…', pourEgaler:'…'})` **immédiatement** (pas au rapport). Un compromis dont `pourEgaler` se résout par un **simple import** (ex. « importer Ghost Icon Button ») = **refusé** : fais l'import isolé (§2.6), « coûteux » n'est pas un motif.
-- **Custom = dernier recours avec preuve MÉCANIQUE** : une ligne `statut:'custom'` n'est valide que si `preuveCustom:` référence un artefact scripté posté (scan Templates sans correspondance + `findAllWithCriteria` ≥2 synonymes sur pages ✦/showcases sans résultat). `reconcile()` échoue sur tout custom sans preuve — les deux fautes majeures du run Mac du 08/07 (avatars custom 17×24, nav custom) étaient des customs sans recherche, passés avec verify=0.
-- **Icônes** : « 🗂️ Flõw | Library » UNIQUEMENT. **Toute substitution/choix de glyphe exige la preuve de recherche scriptée** (navigate Library + probe → `findAllWithCriteria` filtré ≥2 synonymes → 1 screenshot du candidat comparé à la source). **Une clé de l'annexe ne vaut que pour un glyphe déjà comparé à la source dans CETTE session** — l'annexe n'est pas l'inventaire de la Library (paperplane du 07/07 : zéro visite de la Library de tout le run). Recherche infructueuse = SKIP → GATE.
+- **Custom = dernier recours avec preuve MÉCANIQUE** : une ligne `statut:'custom'` n'est valide que si `preuveCustom:` référence un artefact scripté posté (scan Templates sans correspondance + `findAllWithCriteria` ≥2 synonymes sur pages ✦/showcases sans résultat). `reconcile()` échoue sur tout custom sans preuve (mécanisme : un custom sans recherche reproduit de mémoire un composant qui existe déjà — et `verify` ne peut pas le voir, il vérifie les tokens, pas l'existence d'un équivalent DS).
+- **Icônes** : « 🗂️ Flõw | Library » UNIQUEMENT. **Toute substitution/choix de glyphe exige la preuve de recherche scriptée** (navigate Library + probe → `findAllWithCriteria` filtré ≥2 synonymes → 1 screenshot du candidat comparé à la source). **Une clé de l'annexe ne vaut que pour un glyphe déjà comparé à la source dans CETTE session** — l'annexe n'est pas l'inventaire de la Library (mécanisme : une clé jamais comparée pose un glyphe faux en silence). Recherche infructueuse = SKIP → GATE.
 - **Sémantique des teintes** : un statut « en attente/pending » n'est PAS `Info` bleu par défaut — suis la couleur **mesurée** de la source (texte simple = texte simple).
 - **Violet legacy (accent Swile #664ef9 / #633fd3 / #5541cf / #d6d0fd…)** : en convert, mappe vers **`colors/violet/*`** (gamme Tailwind 50–950, mesurée au DS) au plus proche par distance — **sans question user**, LEDGER `{type:'ACCENT-TAILWIND (auto)'}` avec la nuance choisie. La question accent ne se pose qu'en create from scratch sans template applicable.
-- **Tokens partout, customs inclus** (couleurs, text styles, gap, padding, radius, border-width). **Absence dans l'annexe ≠ absence dans le DS** : avant tout arrondi, **preuve de recherche scriptée du token exact** (par nom ET par valeur, `getLocalVariablesAsync` sur le DS) collée — sans elle l'arrondi est refusé (spacing/0,5=2 existait, arrondi 2→4 sur 9 frames au 07/07).
+- **Tokens partout, customs inclus** (couleurs, text styles, gap, padding, radius, border-width). **Absence dans l'annexe ≠ absence dans le DS** : avant tout arrondi, **preuve de recherche scriptée du token exact** (par nom ET par valeur, `getLocalVariablesAsync` sur le DS) collée — sans elle l'arrondi est refusé (mécanisme : l'annexe est un cache partiel — arrondir sans chercher écrase une valeur que le DS possède).
 
 ### 2.3 Sonde (sur le DS) puis warm-up (sur le fichier de travail)
 **Séquence** : ① navigate DS + probe → **SONDE** (lecture seule, zéro import) ; ② navigate travail + probe + re-§0.1 → **WARM-UP**. Rien ne se construit avant la fin des deux.
 
-**SONDE — exhaustivité mécanique** : entrée = TOUTES les lignes `statut:'SONDE'` du MAPPING ; après les mesures et la mise à jour du MAPPING, poste l'artefact de clôture (sur le fichier de travail) : `return {lignesSansMesure: MAPPING.filter(x=>x.statut==='SONDE').map(x=>x.ligne)}` — **DOIT être vide** (c'est le même critère que `reconcile.sondeNonMesuree`, vérifié plus tôt). Il est **interdit d'instancier** un élément dont la ligne contient encore `SONDE` ou un « ou » non tranché — écrans suivants inclus (les 3 boutons PROFIL du 07/07 : marqués « → sonde », jamais mesurés, posés au hasard). **Pour tout bouton : les 4 sets Solid/Soft/Outline/Ghost sont candidats systématiques.** Le **stroke compte** : source à bordure visible + candidat sans stroke = éliminé (et inversement) — un Outline blanc bordé est indiscernable au fill seul.
+**SONDE — exhaustivité mécanique** : entrée = TOUTES les lignes `statut:'SONDE'` du MAPPING ; après les mesures et la mise à jour du MAPPING, poste l'artefact de clôture (sur le fichier de travail) : `return {lignesSansMesure: MAPPING.filter(x=>x.statut==='SONDE').map(x=>x.ligne)}` — **DOIT être vide** (c'est le même critère que `reconcile.sondeNonMesuree`, vérifié plus tôt). Il est **interdit d'instancier** un élément dont la ligne contient encore `SONDE` ou un « ou » non tranché — écrans suivants inclus (une ligne SONDE non mesurée finit posée au hasard). **Pour tout bouton : les 4 sets Solid/Soft/Outline/Ghost sont candidats systématiques.** Le **stroke compte** : source à bordure visible + candidat sans stroke = éliminé (et inversement) — un Outline blanc bordé est indiscernable au fill seul.
 ```js
 // SONDE (testé + stroke au score). candidates: [{label,setNameRe,variantRe}], sourceHex, sourceStroke(bool)
 globalThis.sonde = async (pageNameRe, candidates, sourceHex, sourceStroke) => {
@@ -166,7 +171,9 @@ globalThis.sonde = async (pageNameRe, candidates, sourceHex, sourceStroke) => {
 `fillOpacity` < ~15 % ≈ invisible sur blanc. Égalité au fond → départage par stroke/opacité/page d'usage, ou demande. Toute ligne d'annexe utilisée au mapping doit apparaître dans les mesures, sinon « annexe non confirmée » au LEDGER. Après la sonde : **mets à jour MAPPING (statut 'SONDE'→'DS' + choix mesuré)**.
 **🟥 Annexe contredite par la mesure** (clé qui n'importe plus, set/variante introuvable, valeur différente) → affiche EN TÊTE de ta réponse : « 🟥 **SNAPSHOT/ANNEXE DS PÉRIMÉ — préviens Romain** : <ligne contredite : mesuré vs annexe> », consigne-le au LEDGER (`type:'ANNEXE-PERIMEE'`) et au RETEX (§2.7), et continue avec la valeur **mesurée**.
 
-**WARM-UP (testé)** — construis `COMP_KEYS`/`VAR_KEYS`/`STYLE_KEYS` (`[['nom','clé'],…]`) depuis mapping+sonde+annexe (composants ET icônes ET tokens dimension), puis (call `timeout:30000`) :
+**Text styles — échelle d'acquisition** : ① **harvest** depuis un nœud vivant qui l'utilise — lis `textStyleId` sur une instance importée/un template posé : un styleId remote s'applique tel quel à tout texte neuf (testé) ; ② `importStyleByKeyAsync` au warm-up UNIQUEMENT ; ③ introuvable par ①② → fallback §3.7 (l'user colle la frame Typography). Jamais d'import de composant dans le SEUL but d'en extraire un style ; jamais d'importStyle en cours de build.
+
+**WARM-UP (testé)** — construis `COMP_KEYS`/`VAR_KEYS`/`STYLE_KEYS` (`[['nom','clé'],…]`) depuis mapping+sonde+annexe **pour TOUS les écrans demandés** (composants, icônes, tokens dimension, text styles, templates SHADCN) — un import mi-série est un mode dégradé (§3), pas le plan. Puis (call `timeout:30000`) :
 ```js
 if (figma.root.name.includes('Flõw | Corporate')||figma.root.name.includes('Flõw | Library')) throw 'MAUVAIS FICHIER (DS/Library lecture seule) — navigate vers le fichier de travail';
 globalThis.G = { comp:{}, vars:{}, styles:{}, done:0, total:0, err:[], timeouts:[] };
@@ -181,53 +188,65 @@ const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>re
   catch(e){ (String(e).includes('KEY_TIMEOUT')?G.timeouts:G.err).push(t.n); } G.done++; } })();
 return { total: G.total };   // détaché ; poll : {done, timeouts, err}
 ```
-**Après le lancement de la boucle détachée : FENÊTRE MORTE de 120 s — AUCUN call bridge/figma_*, pas même un poll** (les commandes shell locales ne touchent pas le bridge et sont permises : attends via Bash `sleep 120` en arrière-plan — `run_in_background` — et ne fais RIEN d'autre en attendant). Puis **UN** poll. `done<total` sans `timeouts` → re-fenêtre 60 s puis re-poll (3 max, ensuite traite comme timeouts). Chaque call bridge concurrent pendant la boucle peut geler les clés en vol (mesuré au run Mac : 8 clés échouées sur 53 = exactement celles en vol pendant les polls). `timeouts` → une relance après le lot ; re-timeout → §3.2. `err` → re-découverte **après le lot** (navigate DS, relève, retour + probe, relance ces clés).
+**Après le lancement de la boucle détachée : FENÊTRE MORTE de 120 s — AUCUN call bridge/figma_*, pas même un poll** (les commandes shell locales ne touchent pas le bridge et sont permises : attends via Bash `sleep 120` en arrière-plan — `run_in_background` — et ne fais RIEN d'autre en attendant). Puis **UN** poll. `done<total` sans `timeouts` → re-fenêtre 60 s puis re-poll (3 max, ensuite traite comme timeouts). Chaque call bridge concurrent pendant la boucle peut geler les clés en vol (mesuré : les clés qui échouent sont exactement celles en vol au moment des polls). `timeouts` → une relance après le lot ; re-timeout → §3.2. `err` → re-découverte **après le lot** (navigate DS, relève, retour + probe, relance ces clés).
 
 ### 2.4 Construis UN écran témoin
 **Témoin** = l'écran couvrant le plus de types (souvent le plus complexe) — annonce ton choix, ne le fais pas valider. Pose chaque repro à droite de sa source, frame `<nom source> (shadcn)`. **Au début de CHAQUE écran** (témoin et suivants) : `globalThis.ECRAN='<nom>'` — les helpers taguent leurs entrées avec, et `reconcile` filtre dessus.
 
 - **Shell d'abord**, construit une fois puis cloné. **Racine FIXED/FIXED aux dims de la source.** Clone en parent auto-layout → hérite STRETCH : lis la hauteur source AVANT l'append. Reparenting → re-pose `layoutSizingHorizontal='FILL'`.
-- **Gate création de frames** : tout call qui crée des frames custom **retourne `{name,w,h,sizingH,sizingV}` de CHAQUE frame créé** — un frame auto-layout dont l'axe transverse reste `FIXED` sans resize explicite = piège 100px (3 écrans touchés au 07/07). `createFrame()` = 100×100 + `clipsContent=true` + **fill blanc** → pose taille + `clipsContent=false` + `fills` explicites immédiatement. **Hug en cascade** : contenu interne en auto-width (`textAutoResize='WIDTH_AND_HEIGHT'`).
+- **Gate création de frames** : tout call qui crée des frames custom **retourne `{name,w,h,sizingH,sizingV}` de CHAQUE frame créé** — un frame auto-layout dont l'axe transverse reste `FIXED` sans resize explicite = piège 100px (la taille par défaut de `createFrame()` survit à l'auto-layout). `createFrame()` = 100×100 + `clipsContent=true` + **fill blanc** → pose taille + `clipsContent=false` + `fills` explicites immédiatement. **Hug en cascade** : contenu interne en auto-width (`textAutoResize='WIDTH_AND_HEIGHT'`).
 - **Nommage** : tes frames custom = noms simples ; **instances DS = nom d'origine intouché** (§1).
 - **Tokens liés à la pose** (`setBoundVariable` : `itemSpacing`, `padding*`, `topLeftRadius`×4, `strokeWeight` ; couleurs : `setBoundVariableForPaint`).
 - **Redimensionner une instance** (avatars, icônes…) — HELPER OBLIGATOIRE (sortie collée ; un resize fait SANS le helper est attrapé par `verify` : texte détaché DANS instance, non exemptée du registre RESIZES) :
 ```js
-globalThis.rescaleInst = async (instId, cibleH) => {
+// Instance À TEXTE : resize + text style DS de la taille cible (harvesté/warm-up) — le lien de style SURVIT à resize (testé), pas à rescale.
+// Instance SANS texte (icônes) : rescale — rien à détacher, proportions internes conservées.
+globalThis.sizeInst = async (instId, w, h, styleIdOuNull) => {
   const inst = await figma.getNodeByIdAsync(instId);
-  const t0 = inst.findAll(n=>n.type==='TEXT')[0];
-  const avant = {w:inst.width, h:inst.height, fontSize: t0&&t0.fontSize, styleId: t0&&t0.textStyleId};
-  inst.rescale(cibleH/inst.height);
+  const aTexte = inst.findAll(n=>n.type==='TEXT').length>0;
+  const avant = {w:inst.width, h:inst.height};
+  if (aTexte) { inst.resize(w, h);
+    if (styleIdOuNull) { const s=await figma.getStyleByIdAsync(styleIdOuNull); await figma.loadFontAsync(s.fontName);
+      for (const t of inst.findAll(n=>n.type==='TEXT')) await t.setTextStyleIdAsync(styleIdOuNull); } }
+  else inst.rescale(h/inst.height);
   const t1 = inst.findAll(n=>n.type==='TEXT')[0];
   const apres = {w:Math.round(inst.width), h:Math.round(inst.height), fontSize: t1&&t1.fontSize,
     styleDetache: !!(t1&&(t1.textStyleId===''||typeof t1.textStyleId!=='string'))};
   const out = {instId, ecran: globalThis.ECRAN, avant, apres, fichierActif:figma.root.name};
   globalThis.RESIZES.push(out);
-  return out;   // styleDetache:true est NORMAL et IRRÉPARABLE : ré-attacher après rescale = no-op silencieux de l'API (testé Win+Mac, 3 séquences). Visuel conforme (ratio préservé), token perdu → LEDGER {type:'RESCALE-DETACHE (auto)', instId, ecran} (une entrée PAR instance) et continue. Ne « répare » pas ; ne passe JAMAIS en custom pour l'éviter.
+  return out;   // styleDetache:true = un texte a perdu son style (rescale subi en amont ?) → LEDGER {type:'RESCALE-DETACHE (auto)', instId, ecran} ; ne « répare » pas (no-op API), ne passe JAMAIS en custom pour l'éviter
 };
 ```
 - **Swap + recolor d'icône — HELPER OBLIGATOIRE** (le swap nu est un interdit §1 ; 1 entrée SWAPS = 1 paire compare exigée par reconcile) :
 ```js
 globalThis.swapIcon = async (instId, swapPropOuNull, iconCompId, varIdCouleur, hexAttendu) => {
-  const inst = await figma.getNodeByIdAsync(instId);
+  let inst = await figma.getNodeByIdAsync(instId);
   if (swapPropOuNull) inst.setProperties({[swapPropOuNull]: iconCompId});
   else { const comp = await figma.getNodeByIdAsync(iconCompId); inst.swapComponent(comp); }
+  inst = await figma.getNodeByIdAsync(instId);   // RE-FETCH post-swap : recolorer l'objet d'avant = recolorer l'ANCIEN glyphe
   const v = await figma.variables.getVariableByIdAsync(varIdCouleur);
+  const chainOK = n => { let p=n; while(p && p.id!==inst.id){ if(p.visible===false) return false; p=p.parent; } return true; };
   const done=[];
-  for (const x of inst.findAll(n=>n.type==='VECTOR'&&n.visible!==false)) {
+  for (const x of inst.findAll(n=>n.type==='VECTOR')) {
+    const visible = x.visible!==false && chainOK(x);   // un vecteur peut être visible:true mais CACHÉ par un ancêtre (slot désactivé) — le recolorer = « corriger » un fantôme
     const hasFill=Array.isArray(x.fills)&&x.fills.some(p=>p.type==='SOLID'&&p.visible!==false);
     const hasStroke=Array.isArray(x.strokes)&&x.strokes.length>0;
     if(!hasFill&&!hasStroke) continue;
-    let p={type:'SOLID',color:{r:0,g:0,b:0}}; p=figma.variables.setBoundVariableForPaint(p,'color',v);
-    if(hasFill) x.fills=[p]; else x.strokes=[p];
+    if (visible) { let p={type:'SOLID',color:{r:0,g:0,b:0}}; p=figma.variables.setBoundVariableForPaint(p,'color',v);
+      if(hasFill) x.fills=[p]; else x.strokes=[p]; }
     const q=(hasFill?x.fills:x.strokes)[0];
-    done.push({vec:x.id, porteur:hasFill?'fill':'stroke', hex:'#'+[q.color.r,q.color.g,q.color.b].map(n=>Math.round(n*255).toString(16).padStart(2,'0')).join('')});
+    done.push({vec:x.id, porteur:hasFill?'fill':'stroke', visible,
+      cachePar: visible?null:(()=>{let p=x;while(p&&p.id!==inst.id){if(p.visible===false)return p.name.slice(0,25);p=p.parent;}return x.visible===false?'(lui-même)':null;})(),
+      hex:'#'+[q.color.r,q.color.g,q.color.b].map(n=>Math.round(n*255).toString(16).padStart(2,'0')).join('')});
   }
-  const out = {instId, ecran: globalThis.ECRAN, icon:iconCompId, hexAttendu, done, fichierActif:figma.root.name};
+  const boolsIconOff = inst.componentProperties ? Object.entries(inst.componentProperties).filter(([k,d])=>d.type==='BOOLEAN'&&/icon/i.test(k)&&d.value===false).map(([k])=>k.split('#')[0]) : [];
+  const out = {instId, ecran: globalThis.ECRAN, icon:iconCompId, hexAttendu, done,
+    visibleALaRacine: done.some(d=>d.visible), boolsIconOff, fichierActif:figma.root.name};
   globalThis.SWAPS.push(out);
-  return out;   // done vide = glyphe introuvable → STOP ; si la variante colore déjà juste, appelle quand même (read-back = preuve)
+  return out;   // visibleALaRacine:false = le glyphe N'EST PAS à l'écran (slot masqué par un booléen — active la prop listée dans boolsIconOff via setProperties, puis RE-APPELLE swapIcon). done vide = glyphe introuvable → STOP. Le rendu des variables sur vecteurs imbriqués est SAIN (testé) : pas de couleur littérale « de secours ».
 };
 ```
-- Occurrences répétées : 1ʳᵉ via cache+`createInstance`, suivantes **clonées** — puis **relis la ligne source correspondante** et applique ses champs variables (badge, pastille, contenu). **La donnée commande le modèle, jamais l'inverse** (interdiction d'inventer des initiales/contenus pour remplir un gabarit — ligne 9 du 07/07).
+- **Occurrences répétées / TABLES : row-gabarit SUPERSET.** Construis UNE ligne contenant TOUS les éléments/états possibles de la table (badges, pastilles, avatars, compteurs, boutons), vérifie-la, PUIS clone-la N fois ; pour chaque ligne : `visible=false` sur ce que le dump de la ligne source n'a pas + injecte les données réelles. Jamais de reconstruction ligne à ligne. **La donnée commande le modèle, jamais l'inverse** (interdiction d'inventer initiales/contenus pour remplir un gabarit : une cellule source vide reste vide).
 - **Textes : copie la chaîne exacte relue sur le nœud source au moment d'écrire** (`characters` complet — le `txt` du dump est tronqué à 40 caractères) ; jamais retapée de mémoire (accents/typos).
 - Props lues sur l'instance avant `setProperties` ; sous-éléments parasites désactivés ; **ne bidouille jamais en dur** (rendu faux = mauvaise variante).
 - Élément sur fond coloré (checkbox sur header gris) → fill blanc explicite. Cellule = largeur de son contenu ; `strokeAlign='INSIDE'` ; conteneur source à fond+padding → reproduis-le.
@@ -236,7 +255,7 @@ globalThis.swapIcon = async (instId, swapPropOuNull, iconCompId, varIdCouleur, h
 ### 2.5 Vérifie — 4 artefacts scriptés + 1 checklist, par écran, collés
 **Passe 1 — `verify(rootId)` → count DOIT être 0.**
 ```js
-// VERIFY v3 — VALIDÉ sur les 4 écrans du run raté du 07/07 (attrape : 7× piège 100px, 90× instance renommée, débordements)
+// VERIFY — validé sur écrans réels (attrape : piège 100px, instances renommées, débordements, textes détachés dans les instances)
 globalThis.verify = async (rootId) => {
   const linked=p=>!!(p.boundVariables&&p.boundVariables.color);
   const num=v=>typeof v==='number';
@@ -263,6 +282,7 @@ globalThis.verify = async (rootId) => {
         }
       }
     }
+    if(n.type==='FRAME'&&n.clipsContent===true) add(n,'clipsContent=true (risque de crop)');   // §2.4 impose clipsContent=false sur les frames custom
     if(n.type==='TEXT'&&(n.textStyleId===''||typeof n.textStyleId!=='string')) add(n,'styleId NONE/mixte');
     if(n.type==='TEXT'&&n.characters==='') add(n,'texte vide');
     if(Array.isArray(n.fills)) for(const p of n.fills.filter(f=>f.type==='SOLID'&&f.visible!==false)){
@@ -274,7 +294,7 @@ globalThis.verify = async (rootId) => {
       if(n.strokes&&n.strokes.length){ const sw=num(n.strokeWeight)?n.strokeWeight:Math.max(n.strokeTopWeight||0,n.strokeBottomWeight||0,n.strokeLeftWeight||0,n.strokeRightWeight||0);
         if(sw>0&&!(b.strokeWeight||b.strokeTopWeight||b.strokeBottomWeight||b.strokeLeftWeight||b.strokeRightWeight)) add(n,'border en dur'); } }
     if(n.type==='FRAME'&&n.layoutMode&&n.layoutMode!=='NONE'){ const b=n.boundVariables||{};
-      if(n.primaryAxisAlignItems!=='SPACE_BETWEEN'&&n.itemSpacing>0&&!b.itemSpacing) add(n,'gap en dur');   // SPACE_BETWEEN : itemSpacing ignoré (faux positif destructeur du 07/07)
+      if(n.primaryAxisAlignItems!=='SPACE_BETWEEN'&&n.itemSpacing>0&&!b.itemSpacing) add(n,'gap en dur');   // SPACE_BETWEEN : Figma ignore itemSpacing → le flagger induirait des « fixes » destructeurs
       if((n.paddingLeft>0||n.paddingTop>0)&&!b.paddingLeft&&!b.paddingTop) add(n,'padding en dur'); }
   }
   return { fichierActif: figma.root.name, count:V.length, V };
@@ -289,7 +309,7 @@ globalThis.readNode = async (id) => { const n=await figma.getNodeByIdAsync(id); 
   if(n.layoutMode&&n.layoutMode!=='NONE') r.align=n.primaryAxisAlignItems;
   let best=null,ba=-1;
   for(const x of [n,...('findAll'in n?n.findAll(()=>true):[])]){ if(x.visible===false) continue;
-    if(x.type==='TEXT'&&n.type!=='TEXT') continue;   // fill d'un TEXT = couleur de glyphe, pas un fond (faux « bg » sinon)
+    if((x.type==='TEXT'||x.type==='VECTOR'||x.type==='BOOLEAN_OPERATION')&&x.id!==n.id) continue;   // fill de glyphe ≠ fond : sur une icône seule, lire le glyphe comme « bg » fabrique un faux CONTRASTE
     if(Array.isArray(x.fills)) for(const p of x.fills) if(p.type==='SOLID'&&p.visible!==false){const a=x.width*x.height; if(a>ba){ba=a;best=p;}} }
   if(best){ const c=best.color; r.bgHex=toHex(c); const bv=best.boundVariables&&best.boundVariables.color;
     const vv=bv?await figma.variables.getVariableByIdAsync(bv.id):null; r.bgVar=vv?vv.name:null; }
@@ -325,7 +345,7 @@ globalThis.compareToSource = async (pairs) => {
 };
 ```
 Écart **attendu** (compromis au LEDGER) → cite l'entrée LEDGER ; inexpliqué → corrige.
-**`nearColors`** = fond différent mais **token conforme au mapping** (`expect.bgVar`) : palette DS vs palette legacy, auto-classé — recopie chaque entrée au LEDGER `{type:'NEAR-COLOR (auto)'}`, aucune question user. Toute paire dont le fond vient d'un token du mapping DOIT porter `expect.bgVar` (sans lui, l'écart reste un diff à corriger). La classification se fonde sur la conformité du token, **JAMAIS sur un seuil de distance** (mesuré sur le run validé du 07/07 : résidus légitimes jusqu'à dist **59** — `theme/success` —, bug historique à dist 35 : aucun seuil ne les sépare). `compareTexts` : le clone sidebar est exclu côté repro → réserve-le aux sous-zones hors sidebar (l'écran entier est couvert par textDiff).
+**`nearColors`** = fond différent mais **token conforme au mapping** (`expect.bgVar`) : palette DS vs palette legacy, auto-classé — recopie chaque entrée au LEDGER `{type:'NEAR-COLOR (auto)'}`, aucune question user. Toute paire dont le fond vient d'un token du mapping DOIT porter `expect.bgVar` (sans lui, l'écart reste un diff à corriger). La classification se fonde sur la conformité du token, **JAMAIS sur un seuil de distance** (mesuré sur le run validé du 07/07 : résidus légitimes jusqu'à dist **59** — `theme/success` —, bug historique à dist 35 : aucun seuil ne les sépare). `compareTexts` : le clone sidebar est exclu côté repro → réserve-le aux sous-zones hors sidebar (l'écran entier est couvert par textDiff). **La couleur RENDUE d'un paint est `p.color`** (déjà résolue, mode compris) — n'écris JAMAIS de résolveur maison à base de `valuesByMode` (collection multi-modes → mauvais mode → faux diagnostics de contraste).
 **Passe 3 — `textDiff` : aucun texte source ne disparaît.**
 ```js
 // VALIDÉ sur COLLAB raté du 07/07 : a sorti 16 manquants réels (badge "En attente d'activation", sous-titre d'alerte, "+2", 6 noms+emails de lignes clonées non re-remplies)
@@ -363,7 +383,7 @@ Un ❌ ou « pas vérifiable » = écran non validé.
 ### 2.6 STOP témoin (pré-validation), puis la série
 **Checkpoint après chaque écran vérifié** : `figma.saveVersionHistoryAsync('<écran> vérifié')` **+ mets à jour sentinelle et état persisté** (outil Write) :
 - `.swile-verify.json` : `{"etat":"…","ecrans":{"<nom>":{"verify":<count>,"reconcile":<ok>,"textDiff":<nb manquants non gatés>}},"clean":<true si TOUS les écrans finis sont à verify:0 + reconcile:true + textDiff gaté>}`. **Transitions d'`etat`** : `en_cours` pendant le travail (écran non fini = `clean:false`) → `en_attente_verdict` juste avant le STOP témoin → retour `en_cours` à la reprise de la série → `bloque` (+`motif`) si une panne exige l'user → `fini` + `clean:true` au rapport. Le hook ne laisse sortir que `en_attente_verdict`, `bloque`, ou `fini`+`clean:true` — tout le reste bloque, y compris lock sans sentinelle et `fini`+`clean:false`.
-- `.swile-state.json` (reprise après crash / nouvelle session) : `{MAPPING, LEDGER, SWAPS, RESIZES, COMP_KEYS, VAR_KEYS, STYLE_KEYS, roots:{"<écran>":{sourceId, reproId}}}` — les **clés** d'import, jamais les node-ids de composants importés (instables).
+- `.swile-state.json` (reprise après crash / nouvelle session) : `{MAPPING, LEDGER, SWAPS, RESIZES, COMP_KEYS, VAR_KEYS, STYLE_KEYS, roots:{"<écran>":{sourceId, reproId}}}` — les **clés** d'import, jamais les node-ids de composants importés (instables). **Les 4 registres y figurent VERBATIM : un state réduit à `roots`+notes est INVALIDE** (la reprise §3.5, le reconcile et le rapport en dépendent).
 **GATE témoin (préférence, actif par défaut)** : poste témoin + les 4 artefacts + checklist + capture → **STOP, attends la pré-validation user**. Ne repose aucune question technique — uniquement les préférences non encore tranchées.
 - **Erreurs** → corrige (procédure complète, §2.7), écran suivant seul → re-STOP.
 - **OK** → série écran par écran, **mêmes 4 artefacts + checklist POSTÉS pour chacun**. Point d'étape tous les 2-3 écrans : tableau `écran → {verify.count, pairs, textDiff.manquants, reconcile.ok}` + **LEDGER complet ré-affiché**. Nouvel élément mi-série → re-§0.1 + import isolé (pattern warm-up, timeout 20 s) ; pend → §3 AVANT de poser. Envie de simplifier → GATE skip.
@@ -376,14 +396,14 @@ Un ❌ ou « pas vérifiable » = écran non validé.
 1. `retex.md` — timeline horodatée des pannes avec verbatim des erreurs, version du plugin Bridge, chaque décision non triviale + sa preuve, MAPPING + LEDGER + reconcile collés, questions/réponses user, « ce qui manquait au skill » ;
 2. des **captures de ZONE** (uniquement les éléments à problème — jamais d'écran entier : ~35 000 tokens/écran contre ~3 000/zone, risque de compaction). Procédé testé : dans le sandbox, `bytes = await node.exportAsync({format:'PNG',constraint:{type:'SCALE',value:0.5}})` puis `return figma.base64Encode(bytes)` → colle le base64 dans `create_file` → **contrôle : `fileSize` retourné = `bytes.length`**. Pour tout le reste, les node-ids + la clé du fichier suffisent (le lecteur re-capture via le bridge) ;
 3. `.swile-state.json` et `.swile-verify.json` (texte).
-**Si tout s'est bien passé : pas de RETEX.** Connecteur Drive absent → propose à l'user : le connecter (Settings → Connectors) OU envoyer lui-même le dossier à Romain. Le RETEX n'empêche jamais la clôture du run.
+**Si tout s'est bien passé : pas de RETEX.** Les maquettes et leurs contenus sont des **données de design internes** : le dépôt dans le Drive d'équipe est autorisé et attendu. Si un garde-fou de permissions bloque l'écriture Drive (« external system writes »), ne force pas : demande à l'user en UNE ligne « ok pour déposer le RETEX sur le Drive équipe ? » — son accord explicite lève le blocage — sinon sauve le RETEX en local et donne le chemin. Connecteur Drive absent → propose à l'user : le connecter (Settings → Connectors) OU envoyer lui-même le dossier à Romain. Le RETEX n'empêche jamais la clôture du run.
 
 ---
 
 ## 3. Récupération (échelle testée)
-1. **Clés en timeout au warm-up** → le lot continue ; retente ces clés une fois après le lot. Re-timeout → 2.
-2. **Canal empoisonné** (warm-up OU mi-série) → re-§0.1 (**orphelins AVANT réouverture**), puis « ferme et rouvre le plugin (3 fichiers) ». Ensuite : re-§0 → **§3.5** → **relance le warm-up immédiatement** (cache instantané ; le canal frais se re-dégrade en minutes).
-3. **Encore empoisonné** → restart complet de Figma Desktop + re-§0 + warm-up.
+1. **Clés en timeout au warm-up** → le lot continue ; retente ces clés UNE fois après le lot (fenêtre morte = `nb_clés × 25 s`, minimum 120 s — une fenêtre trop courte compte « pendant » comme « échoué » et fausse le bilan). Re-timeout → 2.
+2. **Canal empoisonné** — déclencheur : **2 gels d'import consécutifs** (n'insiste pas : les contournements coûtent plus cher qu'une réouverture) → re-§0.1 (**orphelins AVANT réouverture**), puis « ferme et rouvre le plugin (3 fichiers) ». Ensuite : re-§0 → **§3.5** → **relance le warm-up immédiatement** (cache instantané ; les clés « empoisonnées » redeviennent importables en ~0,3 s sur canal frais ; le canal se re-dégrade en ~10 min et supporte peu d'imports une fois tiède). La réouverture ne remplace PAS §3.7 : styles durablement introuvables → §3.7 reste l'issue.
+3. **2 réouvertures sans rétablissement des imports** → restart complet de Figma Desktop + re-§0 + warm-up.
 4. `figma_reconnect`/`figma_reload_plugin` **ne débloquent pas**.
 5. **Intégrité après tout restart/reconnexion/nouvelle session** : si les registres sont vides et que `.swile-state.json` existe → recharge-le (outil Read), recrée les registres en un call (`globalThis.MAPPING=[…]; …`), relance le warm-up depuis les clés persistées (cache : quasi instantané). Puis chaque écran construit → `getNodeByIdAsync` PUIS `verify` (count:0) PUIS re-lecture des dims racine vs source. Reverté → reconstruis (procédure complète). Témoin validé perdu : le verdict tient si le témoin reconstruit re-passe compare, sinon re-STOP.
 6. **« Unable to establish connection »** → probe `1+1`. Probe OK : retente 1× ; échec persistant sur le même id = nœud toxique → parent + `findAll` ; gros script refusé → découpe en 2 calls. Probe KO → §0.
@@ -408,9 +428,9 @@ Un ❌ ou « pas vérifiable » = écran non validé.
 | Pastilles/compteurs sur icônes | **custom à la main, pré-justifié par cette annexe** → `preuveCustom:'annexe:pastilles'` (le scan Templates reste dû ; violet → `colors/violet/*`) — à reproduire **par ligne selon le dump** | jamais cloné ; jamais simplifié sans GATE |
 | Statut « en attente/pending » | suit la **couleur mesurée de la source** (texte simple = texte simple) | JAMAIS `Info` bleu par défaut |
 
-**Page « Swile - Templates »** (DS) : exemples officiels Swile — sections `<ÉCRAN> - CONVERT` = paires OLD/SHADCN (mesuré : COLLABORATEURS, PROFIL au 08/07), sans suffixe = from scratch. Consultation obligatoire §2.2-0.
+**Page « Swile - Templates »** (DS) : exemples officiels Swile — sections `<ÉCRAN> - CONVERT` = frame OLD + **COMPONENT publié** `<ÉCRAN> - SHADCN`, sans suffixe = from scratch. Consultation obligatoire §2.2-0. Clés mesurées (liste vivante — re-scanne la page) : COLLABORATEURS - SHADCN `257e6c07255dc3f7f518dc6ba367fdfc37dcd142` · PROFIL - SHADCN `68c3ff9ae5c05e166ada559e8aab6883493ac60b`.
 **Accent violet Tailwind** : `colors/violet/500` #8b5cf6 c49a5e4d9c53a332c288a8470b3edd6bdb15ab80 · `600` #7c3aed 273d4ff0bcd0d0d0cf05abfb4a258abf070fbac6 (gamme 50–950 + purple dispo, mesurée) — nuance au plus proche de la source par distance.
-**Pièges DS** : `theme/primary` = noir #171717, PAS violet · boutons max `lg` h40 · `theme/muted` canvas · `theme/card` carte · `theme/border` bordures · `foreground`/`muted-foreground` textes · Avatar = Initials/Image × Circle · Alert Soft ≠ Solid (props différentes → lire sur l'instance) · **Select : intérieur du master verrouillé à 288 px** → pose l'instance dans un wrapper custom à largeur fixe (le resize direct ne tient pas).
+**Pièges DS** : `theme/primary` = noir #171717, PAS violet · boutons max `lg` h40 · `theme/muted` canvas · `theme/card` carte · `theme/border` bordures · `foreground`/`muted-foreground` textes · Avatar = Initials/Image × Circle · Alert Soft ≠ Solid (props différentes → lire sur l'instance) · **Select : intérieur du master verrouillé à 288 px** → pose l'instance dans un wrapper custom à largeur fixe (le resize direct ne tient pas) · **Boutons : booléens `Left Icon`/`Right Icon` à `false` par défaut** → active le booléen AVANT le swap, sinon le glyphe swappé reste une couche MASQUÉE (invisible à l'écran, lisible au read-back naïf) · **Checkbox/Switch : prop `Label`** à masquer si absente de la source · **Avatar 32→24 : `sizeInst(24,24,<style XS>)`** — jamais rescale (détache le style).
 
 **Variables theme (« ☀️ Mode »)** : `background` 36d8943d0eb5c32d238a3dbe660f2d87f3f8df1d · `foreground` da9243f78b70a8ebe13306dc7916644bbd6032ca · `muted` 1a1c4fb51130fc6ac02bd86235145f4bf680e19a · `muted-foreground` 5608ad047b43e73345fd27d068601055ecef7f39 · `card` bf87620e38d9c9f825dcc342a3ae92f6b408236b · `border` ad89e5c8830e88a9cad5c7b7a0d92b2d1f4f4839 · `primary` 1b18ade61d046a487e4979cf8f380a8ef49d692b · `primary-foreground` 6da70a3468f722f3ca072e4d6d99c6a4ab3995e5 · `secondary` 38a4db465d1d3aa4f591c9a996fda92687667bcb · `accent` 361675c5f04130e691273ce02fbace92ae529031 · `info` 755d67b7cf2a27c5ccc8c2318af283a0a31bdc1b · `success` cfc6b1fa897ef27dd5a08e0912fac9ddbd8d0d52 · `destructive` e5beee398ba3a66ebbc815b21291b5431d31a7ce
 
@@ -419,6 +439,7 @@ spacing `px`=1 8ca433f5721dd587116a796e500abb0eb8f4170b · **`0,5`=2 bb3764d7c03
 radius `rounded` 1227b0ade0ae5a459fb95cd03e2026d8542cad01 · `rounded-md` 25aeecfd792e1f0826ae60a6bfa01b4c11a834cb · `rounded-lg` 75222fe5350f2e94033d1d50694c07f6620e4fa9 · `rounded-xl` 7e0fc63f699ad75c1baeb740bb31bfbea70b494b · `rounded-2xl` bf917a9961ac9dcd782da4b59798636757cbf131 · `rounded-full` f10b214f99500ab75f246577809c37c6c5ae6ea4
 border-width `border`(1px) bf12a29d1cf5d33aeb4f7d7bdd3f5206063b7260 · `border-2` e4e819d98694ee654d2cb1b0354b5c1f48204880
 
+**Limites de l'exécuteur (mesurées)** : pas de destructuring dans les callbacks (`findAll(({x})=>…)` → ReferenceError) · `exportAsync` ne rend que le sous-arbre du nœud · un id de style « importé avec succès » peut résoudre `null` ensuite (canal) → l'échelle harvest §2.3 est la voie primaire · un composant-écran (~500 nœuds, templates SHADCN) ne s'importe que sur **canal frais** — mets sa clé au warm-up, jamais mi-série.
 **Text styles (« ↳ Tailwind Typography »)** : `XS/Regular` 9f9c604988dabad2ccb51aa87edbe244a20719dd · `XS/Medium` 7d25eddd056818b0274c86197a52db284317bce3 · `SM/Regular` 60ff59f703243b7b8ff3a6e12bc44e57fdbb25fe · `SM/Medium` acf925cf0504b75a0c3441aa5884276ab18550bd · `Base/Regular` 378e481f67c8a93217c89e6e854e726c42b753a3 · `Base/Medium` 7ad5876bc16457420bdb48fb045efcd61e14e102 · `LG/Bold` c58cc705869ef88ff3c38f4e85dec5d98d5825ff · `2XL/Bold` a716c3fd01fe4d9245ec090c6e8782147011b1a9 · `Extra/Link` c51bceb6e3391552b3a1099a32e8106b10439029
 
 **Composants (variantes usuelles ; la sonde matche les sets par NOM ; autres variantes d'un set importé = `setProperties`, zéro import)** :
