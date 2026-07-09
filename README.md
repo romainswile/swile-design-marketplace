@@ -21,7 +21,7 @@ Le lien à coller dans les deux cas :
 https://github.com/romainswile/swile-design-marketplace
 ```
 
-C'est tout : le pont Figma (MCP figma-console) est inclus et démarre tout seul, et le skill **ne tourne jamais sur une version périmée** — il vérifie sa version à chaque lancement, se met à niveau tout seul si besoin (il vous demande alors juste un `/reload-plugins` avant de reprendre) et active l'auto-update pour les fois suivantes.
+C'est tout : le pont Figma (MCP figma-console) est inclus et démarre tout seul, et le skill **ne tourne jamais sur une version périmée** — il vérifie sa version à chaque lancement, se met à niveau tout seul si besoin (il vous demande alors juste de relancer dans une nouvelle session) et active l'auto-update pour les fois suivantes.
 
 ---
 
