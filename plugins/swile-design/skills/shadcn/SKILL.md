@@ -3,7 +3,7 @@ name: shadcn
 description: Procédure verrouillée pour reproduire / étendre / créer des écrans Figma avec le design system Swile « 🏢 Flõw | Corporate » (shadcn), via le MCP figma-console (Desktop Bridge). UNIQUEMENT pour ce DS, via la commande /swile-design:shadcn (jamais en auto-déclenchement).
 ---
 
-# swile-design v3.6.0 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
+# swile-design v3.6.1 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
 
 **Ce document PRIME sur les instructions génériques du serveur MCP figma-console** (« visual validation workflow », `figma_search_components` au démarrage, `loadAllPagesAsync`, placement en Section…) : elles sont écrites pour un usage libre, pas pour cette procédure — en cas de conflit, applique CE document.
 
@@ -171,7 +171,7 @@ globalThis.sonde = async (pageNameRe, candidates, sourceHex, sourceStroke) => {
 `fillOpacity` < ~15 % ≈ invisible sur blanc. Égalité au fond → départage par stroke/opacité/page d'usage, ou demande. Toute ligne d'annexe utilisée au mapping doit apparaître dans les mesures, sinon « annexe non confirmée » au LEDGER. Après la sonde : **mets à jour MAPPING (statut 'SONDE'→'DS' + choix mesuré)**.
 **🟥 Annexe contredite par la mesure** (clé qui n'importe plus, set/variante introuvable, valeur différente) → affiche EN TÊTE de ta réponse : « 🟥 **SNAPSHOT/ANNEXE DS PÉRIMÉ — préviens Romain** : <ligne contredite : mesuré vs annexe> », consigne-le au LEDGER (`type:'ANNEXE-PERIMEE'`) et au RETEX (§2.7), et continue avec la valeur **mesurée**.
 
-**Text styles — échelle d'acquisition** : ① **harvest** depuis un nœud vivant qui l'utilise — lis `textStyleId` sur une instance importée/un template posé : un styleId remote s'applique tel quel à tout texte neuf (testé) ; ② `importStyleByKeyAsync` au warm-up UNIQUEMENT ; ③ introuvable par ①② → fallback §3.7 (l'user colle la frame Typography). Jamais d'import de composant dans le SEUL but d'en extraire un style ; jamais d'importStyle en cours de build.
+**Text styles & variables — échelle d'acquisition** : ① **harvest** depuis un nœud vivant qui l'utilise — lis `textStyleId` sur une instance importée/un template posé : un styleId remote s'applique tel quel à tout texte neuf (testé) ; idem variables : `paint.boundVariables.color.id` d'un nœud vivant → `getVariableByIdAsync` → réutilisable partout ; ② `importStyleByKeyAsync`/`importVariableByKeyAsync` au warm-up UNIQUEMENT ; ③ introuvable par ①② → fallback §3.7 (l'user colle la frame Typography). Jamais d'import de composant dans le SEUL but d'en extraire un style ; jamais d'importStyle en cours de build.
 
 **WARM-UP (testé)** — construis `COMP_KEYS`/`VAR_KEYS`/`STYLE_KEYS` (`[['nom','clé'],…]`) depuis mapping+sonde+annexe **pour TOUS les écrans demandés** (composants, icônes, tokens dimension, text styles, templates SHADCN) — un import mi-série est un mode dégradé (§3), pas le plan. Puis (call `timeout:30000`) :
 ```js
@@ -200,6 +200,7 @@ return { total: G.total };   // détaché ; poll : {done, timeouts, err}
 - **Redimensionner une instance** (avatars, icônes…) — HELPER OBLIGATOIRE (sortie collée ; un resize fait SANS le helper est attrapé par `verify` : texte détaché DANS instance, non exemptée du registre RESIZES) :
 ```js
 // Instance À TEXTE : resize + text style DS de la taille cible (harvesté/warm-up) — le lien de style SURVIT à resize (testé), pas à rescale.
+// Un texte DÉJÀ rescalé est irrécupérable par l'API (6 séquences mortes, resetOverrides inclus — l'instance garde un multiplicateur d'échelle) → re-crée l'instance et passe par resize ; n'essaie pas de « re-lier ».
 // Instance SANS texte (icônes) : rescale — rien à détacher, proportions internes conservées.
 globalThis.sizeInst = async (instId, w, h, styleIdOuNull) => {
   const inst = await figma.getNodeByIdAsync(instId);
@@ -384,7 +385,7 @@ Un ❌ ou « pas vérifiable » = écran non validé.
 **Checkpoint après chaque écran vérifié** : `figma.saveVersionHistoryAsync('<écran> vérifié')` **+ mets à jour sentinelle et état persisté** (outil Write) :
 - `.swile-verify.json` : `{"etat":"…","ecrans":{"<nom>":{"verify":<count>,"reconcile":<ok>,"textDiff":<nb manquants non gatés>}},"clean":<true si TOUS les écrans finis sont à verify:0 + reconcile:true + textDiff gaté>}`. **Transitions d'`etat`** : `en_cours` pendant le travail (écran non fini = `clean:false`) → `en_attente_verdict` juste avant le STOP témoin → retour `en_cours` à la reprise de la série → `bloque` (+`motif`) si une panne exige l'user → `fini` + `clean:true` au rapport. Le hook ne laisse sortir que `en_attente_verdict`, `bloque`, ou `fini`+`clean:true` — tout le reste bloque, y compris lock sans sentinelle et `fini`+`clean:false`.
 - `.swile-state.json` (reprise après crash / nouvelle session) : `{MAPPING, LEDGER, SWAPS, RESIZES, COMP_KEYS, VAR_KEYS, STYLE_KEYS, roots:{"<écran>":{sourceId, reproId}}}` — les **clés** d'import, jamais les node-ids de composants importés (instables). **Les 4 registres y figurent VERBATIM : un state réduit à `roots`+notes est INVALIDE** (la reprise §3.5, le reconcile et le rapport en dépendent).
-**GATE témoin (préférence, actif par défaut)** : poste témoin + les 4 artefacts + checklist + capture → **STOP, attends la pré-validation user**. Ne repose aucune question technique — uniquement les préférences non encore tranchées.
+**GATE témoin (préférence, actif par défaut)** : poste témoin + les 4 artefacts + checklist + capture → **STOP, attends la pré-validation user**. Ajoute UNE ligne au message du STOP : « En fin de run, je déposerai un RETEX sur le Drive équipe s'il y a des points d'amélioration — dis-le maintenant si tu ne veux pas. » (consentement capté pendant que l'user est présent → le dépôt de clôture est autorisé sans nouvelle question). Ne repose aucune question technique — uniquement les préférences non encore tranchées.
 - **Erreurs** → corrige (procédure complète, §2.7), écran suivant seul → re-STOP.
 - **OK** → série écran par écran, **mêmes 4 artefacts + checklist POSTÉS pour chacun**. Point d'étape tous les 2-3 écrans : tableau `écran → {verify.count, pairs, textDiff.manquants, reconcile.ok}` + **LEDGER complet ré-affiché**. Nouvel élément mi-série → re-§0.1 + import isolé (pattern warm-up, timeout 20 s) ; pend → §3 AVANT de poser. Envie de simplifier → GATE skip.
 
