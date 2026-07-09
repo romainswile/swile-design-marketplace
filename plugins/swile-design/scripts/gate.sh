@@ -16,6 +16,20 @@ cwd="$(printf '%s' "$cwd_esc" | sed 's/\\\\/\//g; s/\\/\//g')"
 echo "[$ts] sh invoked cwd=$cwd" >> "$log"
 [ -z "$cwd" ] && exit 0
 
+# Verrou de mise a jour : si .swile-update.lock designe une version differente de CELLE DE CE GATE (= celle chargee
+# par la session), la session tourne sur une version perimee -> toute fin de tour est bloquee. La session neuve
+# (bonne version) passe ici puis le skill supprime le fichier au setup.
+ulock="$cwd/.swile-update.lock"
+if [ -f "$ulock" ]; then
+  target="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$ulock" 2>/dev/null)"
+  self="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$(dirname "$0")/../.claude-plugin/plugin.json" 2>/dev/null)"
+  if [ -n "$target" ] && [ -n "$self" ] && [ "$target" != "$self" ]; then
+    echo "[$ts] sh BLOCK update-lock cible=$target session=$self" >> "$log"
+    printf '{"decision":"block","reason":"[swile-design] !!! MISE A JOUR INSTALLEE (v%s) — CETTE SESSION TOURNE ENCORE SUR L ANCIENNE VERSION (v%s) !!! Aucune reprise du skill possible ici. Dis a l utilisateur, en bandeau rouge tres visible, d ouvrir une NOUVELLE SESSION et d y relancer sa commande /swile-design:shadcn — c est tout."}' "$target" "$self"
+    exit 0
+  fi
+fi
+
 lock="$cwd/.swile-run.lock"
 sent="$cwd/.swile-verify.json"
 
