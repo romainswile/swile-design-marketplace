@@ -43,6 +43,7 @@ Plugin **Desktop Bridge** requis dans 3 fichiers : travail, DS **« 🏢 Flõw |
 > 2. Toujours v\<X\> ? Ton manifest pointe vers une vieille copie → Plugins → Development → supprime « Figma Desktop Bridge » → **Import plugin from manifest** → `~/.figma-console-mcp/plugin/manifest.json` → rouvre-le dans les 3 fichiers.
 >
 > Dis-moi « ok » quand c'est fait — je revérifie et on continue.
+6. **IMPORT-TEST de setup** : UN import chronométré d'une clé de l'annexe (`timeout:30000`). Sain = ~15 ms (cachée) à ~2 s (neuve). **> 5 s ou timeout = canal déjà malade → demande la réouverture du plugin (3 fichiers) MAINTENANT**, avant de lancer les 40+ clés du warm-up dedans (mécanisme : un gel initial se voit dès le premier import — le détecter là économise 5-20 min de récupération en plein warm-up).
 
 `figma_navigate` switche la cible sans rien fermer. **Après CHAQUE navigate : probe trivial** (`return 1+1`) — timeout sur read trivial = divergence onglet/cible, pas une lenteur. Re-check le point 1 avant chaque phase d'import.
 
@@ -60,7 +61,7 @@ return 'registres prêts, fichier: '+figma.root.name;   // DOIT être le fichier
 **OBLIGATION n°1 (ce n'est pas un interdit — l'OUBLIER fige le worker)** : `timeout:30000` sur **tout** call contenant un import (le défaut 5 s coupe l'import) **et sur tout walk d'arbre complet d'écran** (dumpSource/verify/compareToSource/textDiff sur une racine — mesuré jusqu'à ~15 s). Plafond dur figma_execute : 30 s.
 
 **Interdits (chaque violation a cassé un run réel)** :
-- Jamais : `Promise.all` d'imports · import + build même call (clés non cachées) · boucle d'import `await`-ée · `importComponentSetByKeyAsync` · `loadAllPagesAsync()` sur le DS · `figma_instantiate_component` / `figma_search_components` / `figma_get_library_variables`.
+- Jamais : `Promise.all` d'imports · **import + build dans le même call — MÊME sur clés cachées** (mécanisme : sur canal dégradé, l'import inline qui gèle emporte tout le call et son build ; « c'est caché donc rapide » est vrai jusqu'au jour où ça ne l'est plus) — un ré-import d'id périmé se fait dans un call DÉDIÉ, ou mieux : clone depuis le KIT (§2.3) · boucle d'import `await`-ée · `importComponentSetByKeyAsync` · `loadAllPagesAsync()` sur le DS · `figma_instantiate_component` / `figma_search_components` / `figma_get_library_variables`. Exception nommée : le **swap** (`setProperties` INSTANCE_SWAP) exige un id de composant vivant — si l'id est null, ré-importe-le dans un call dédié AVANT le call de swap.
 - **Le SEUL cap autorisé autour d'un import** = le `withTimeout` 20 s PAR CLÉ de la boucle détachée du warm-up. Tout autre `Promise.race`/cap court « de diagnostic » autour d'un import = coupure interdite (mécanisme : la promesse coupée laisse l'import en vol dans le worker, qui finit par geler le canal pour toutes les clés non cachées).
 - **Un call timeouté n'est PAS annulé** : l'exécution continue et peut committer partiellement OU **en différé** (le re-scan immédiat dit « vide », le contenu apparaît après — doublons garantis au retry aveugle). Règle : nomme d'un **tag unique** les frames créées par chaque call de build (purge par tag possible) ; après un timeout, **attends ≥30 s** puis re-scan AVANT toute re-soumission.
 - **Budget par call de build : ~15 ops** (latence mesurée jusqu'à ~1 s/op sur canal chargé ; le transport coupe les gros calls à ~10 s en ignorant ton paramètre timeout). Gros build = série de micro-calls.
@@ -69,7 +70,7 @@ return 'registres prêts, fichier: '+figma.root.name;   // DOIT être le fichier
 - **`counterAxisSizingMode='AUTO'` (hug) sur le frame RACINE d'un écran = interdit.** Un « contenu déborde » se corrige en **bissectant** (poste la table des hauteurs enfants repro vs source, corrige l'enfant fautif) — JAMAIS en aggrandissant/huggant le parent pour éteindre le flag.
 - **Ne renomme JAMAIS une instance de composant DS** (son nom = son lien au composant dans Figma ; le sens se porte sur la frame parente ; tes scripts s'ancrent par **id**, pas par nom).
 - **Tout fix déclenché par verify** retourne dans le MÊME call le read-back layout complet du nœud corrigé (`{layoutMode, primaryAxisAlignItems, itemSpacing, sizing H/V}`) — un re-scan count seul ne valide RIEN (mécanisme : un « fix » peut détruire le layout en silence — racine passée en hug, space-between écrasé — et le re-scan dit quand même « vert »).
-- **Clé de VARIANTE, jamais de SET** ; 1 import/SET puis `setProperties`. Node-id importé instable → ré-importe par clé (cache ~150 ms). Ne ré-importe jamais une ressource locale ; **clone l'instance posée** pour les répétitions.
+- **Clé de VARIANTE, jamais de SET** ; 1 import/SET puis `setProperties`. Node-id importé instable → ré-importe par clé (cache ~150 ms) **dans un call DÉDIÉ** (jamais mêlé au build — cf. interdit ci-dessus), ou mieux : clone depuis le KIT. Ne ré-importe jamais une ressource locale ; **clone l'instance posée** pour les répétitions.
 - **Pendant un gel, les LECTURES passent** : probe sain ≠ imports sains.
 
 **Modes de panne** (récupération §3) :
@@ -320,12 +321,13 @@ globalThis.readNode = async (id) => { const n=await figma.getNodeByIdAsync(id); 
   const r={name:n.name, w:Math.round(n.width), h:Math.round(n.height)};
   if(n.layoutMode&&n.layoutMode!=='NONE') r.align=n.primaryAxisAlignItems;
   const visOK=x=>{ if(x.visible===false) return false; let p=x.parent; while(p&&p.id!==n.id&&p.type!=='PAGE'){ if(p.visible===false) return false; p=p.parent; } return true; };   // visibilité PLEINE CHAÎNE — un calque caché par un ancêtre pollue bg/glyphe/textes sinon
-  let best=null,ba=-1;
+  let best=null,ba=-1,bestNode=null;
   for(const x of [n,...('findAll'in n?n.findAll(()=>true):[])]){ if(!visOK(x)) continue;
     if((x.type==='TEXT'||x.type==='VECTOR'||x.type==='BOOLEAN_OPERATION')&&x.id!==n.id) continue;   // fill de glyphe ≠ fond : sur une icône seule, lire le glyphe comme « bg » fabrique un faux CONTRASTE
-    if(Array.isArray(x.fills)) for(const p of x.fills) if(p.type==='SOLID'&&p.visible!==false){const a=x.width*x.height; if(a>ba){ba=a;best=p;}} }
+    if(Array.isArray(x.fills)) for(const p of x.fills) if(p.type==='SOLID'&&p.visible!==false){const a=x.width*x.height; if(a>ba){ba=a;best=p;bestNode=x;}} }
   if(best){ const c=best.color; r.bgHex=toHex(c); const bv=best.boundVariables&&best.boundVariables.color;
-    const vv=bv?await figma.variables.getVariableByIdAsync(bv.id):null; r.bgVar=vv?vv.name:null; }
+    const vv=bv?await figma.variables.getVariableByIdAsync(bv.id):null; r.bgVar=vv?vv.name:null;
+    if(bestNode&&Array.isArray(bestNode.fills)&&bestNode.fills.filter(p=>p.type==='SOLID'&&p.visible!==false).length>1) r.bgEmpile=true; }   // fills EMPILÉS (ex. Soft destructive = blanc + teinte 10%) : la couleur perçue = la PILE → juge par la capture, pas ce seul hex
   if('componentProperties'in n&&n.componentProperties){const vp={};for(const [k,d] of Object.entries(n.componentProperties))if(d.type==='VARIANT')vp[k]=d.value;if(Object.keys(vp).length)r.variant=vp;}
   if('findAll'in n){ const vec=n.findAll(x=>x.type==='VECTOR'&&visOK(x)&&!insideCloneCS(x)&&((Array.isArray(x.fills)&&x.fills.some(p=>p.type==='SOLID'&&p.visible!==false))||(Array.isArray(x.strokes)&&x.strokes.length)))[0];
     if(vec){ const p=(Array.isArray(vec.fills)&&vec.fills.find(q=>q.type==='SOLID'&&q.visible!==false))||(Array.isArray(vec.strokes)&&vec.strokes.find(q=>q.type==='SOLID')); if(p) r.glyphHex=toHex(p.color); }
@@ -442,7 +444,7 @@ Un ❌ ou « pas vérifiable » = écran non validé.
 | Soft Button (primary ET secondary) | fond `theme/card` **BLANC** | « gris = Soft » est un mythe réfuté |
 | **Bouton-icône fond neutre visible** | **Solid Icon Button `secondary`** (#f5f5f5 opaque) | Soft Icon Button = teinte 10 % ≈ invisible (destructive teinté OK) |
 | **Onglets « boxed »** | **Track segmenté gris** (`theme/muted`, pad ~4, radius ~10, hug, DANS le panneau) + Tabs `Boxed` actif pastille blanche — pattern « Advance Tabs ». Alternative validée (« ✦ Navigation Menu ») : **Ghost Button** enabled + actif `hover` (#f5f5f5 `theme/accent`), labels inactifs `muted-foreground` | jamais Boxed nu sur blanc |
-| Sous-onglets soulignés | Tabs `Bordered` ; la **frame** porte le border-bottom pleine largeur `theme/border` ; actif `theme/primary` noir | violet source = décision accent §2.2 |
+| Sous-onglets soulignés | Tabs `Bordered` ; la **frame** porte le border-bottom pleine largeur `theme/border` ; actif `theme/primary` noir | violet source → `colors/violet/*` (auto, §2.2) |
 | Switch vert plein | Switch `Solid, sucess` *(sic)* track `theme/success` #16a34a | Outline = track blanc + stroke vert |
 | Checkbox sur fond non blanc | fill blanc explicite (`theme/background`) | boîte `fills:[]` par défaut |
 | Pastilles/compteurs sur icônes | **custom à la main, pré-justifié par cette annexe** → `preuveCustom:'annexe:pastilles'` (le scan Templates reste dû ; violet → `colors/violet/*`) — à reproduire **par ligne selon le dump** | jamais cloné ; jamais simplifié sans GATE |
