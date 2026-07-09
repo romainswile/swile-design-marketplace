@@ -3,7 +3,7 @@ name: shadcn
 description: Procédure verrouillée pour reproduire / étendre / créer des écrans Figma avec le design system Swile « 🏢 Flõw | Corporate » (shadcn), via le MCP figma-console (Desktop Bridge). UNIQUEMENT pour ce DS, via la commande /swile-design:shadcn (jamais en auto-déclenchement).
 ---
 
-# swile-design v3.6.1 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
+# swile-design v3.6.2 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
 
 **Ce document PRIME sur les instructions génériques du serveur MCP figma-console** (« visual validation workflow », `figma_search_components` au démarrage, `loadAllPagesAsync`, placement en Section…) : elles sont écrites pour un usage libre, pas pour cette procédure — en cas de conflit, applique CE document.
 
@@ -171,7 +171,7 @@ globalThis.sonde = async (pageNameRe, candidates, sourceHex, sourceStroke) => {
 `fillOpacity` < ~15 % ≈ invisible sur blanc. Égalité au fond → départage par stroke/opacité/page d'usage, ou demande. Toute ligne d'annexe utilisée au mapping doit apparaître dans les mesures, sinon « annexe non confirmée » au LEDGER. Après la sonde : **mets à jour MAPPING (statut 'SONDE'→'DS' + choix mesuré)**.
 **🟥 Annexe contredite par la mesure** (clé qui n'importe plus, set/variante introuvable, valeur différente) → affiche EN TÊTE de ta réponse : « 🟥 **SNAPSHOT/ANNEXE DS PÉRIMÉ — préviens Romain** : <ligne contredite : mesuré vs annexe> », consigne-le au LEDGER (`type:'ANNEXE-PERIMEE'`) et au RETEX (§2.7), et continue avec la valeur **mesurée**.
 
-**Text styles & variables — échelle d'acquisition** : ① **harvest** depuis un nœud vivant qui l'utilise — lis `textStyleId` sur une instance importée/un template posé : un styleId remote s'applique tel quel à tout texte neuf (testé) ; idem variables : `paint.boundVariables.color.id` d'un nœud vivant → `getVariableByIdAsync` → réutilisable partout ; ② `importStyleByKeyAsync`/`importVariableByKeyAsync` au warm-up UNIQUEMENT ; ③ introuvable par ①② → fallback §3.7 (l'user colle la frame Typography). Jamais d'import de composant dans le SEUL but d'en extraire un style ; jamais d'importStyle en cours de build.
+**Text styles & variables — échelle d'acquisition** : ① **harvest** depuis un nœud vivant qui l'utilise — lis `textStyleId` sur une instance importée/un template posé : un styleId remote s'applique tel quel à tout texte neuf (testé) ; idem TOUTES les variables (couleur, `itemSpacing`, `padding*`, radius, `strokeWeight`…) : `n.boundVariables.<prop>.id` d'un nœud vivant **du fichier de travail** (instance importée, template posé) → `getVariableByIdAsync` → re-liable partout via `setBoundVariable`/`setBoundVariableForPaint` — « swapper » un token = re-lier l'id harvesté (pas d'API de swap dédiée, pas besoin) ; ⚠️ un id harvesté sur un nœud du DS (autre sandbox) ne résout PAS dans le fichier de travail ; ② `importStyleByKeyAsync`/`importVariableByKeyAsync` au warm-up UNIQUEMENT ; ③ introuvable par ①② → fallback §3.7 (l'user colle la frame Typography). Jamais d'import de composant dans le SEUL but d'en extraire un style ; jamais d'importStyle en cours de build.
 
 **WARM-UP (testé)** — construis `COMP_KEYS`/`VAR_KEYS`/`STYLE_KEYS` (`[['nom','clé'],…]`) depuis mapping+sonde+annexe **pour TOUS les écrans demandés** (composants, icônes, tokens dimension, text styles, templates SHADCN) — un import mi-série est un mode dégradé (§3), pas le plan. Puis (call `timeout:30000`) :
 ```js
