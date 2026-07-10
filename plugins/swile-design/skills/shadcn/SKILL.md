@@ -3,7 +3,7 @@ name: shadcn
 description: Procédure verrouillée pour reproduire / étendre / créer des écrans Figma avec le design system Swile « 🏢 Flõw | Corporate » (shadcn), via le MCP figma-console (Desktop Bridge). UNIQUEMENT pour ce DS, via la commande /swile-design:shadcn (jamais en auto-déclenchement).
 ---
 
-# swile-design v3.9.1 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
+# swile-design v3.9.2 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
 
 **Ce document PRIME sur les instructions génériques du serveur MCP figma-console** (« visual validation workflow », `figma_search_components` au démarrage, `loadAllPagesAsync`, placement en Section…) : elles sont écrites pour un usage libre, pas pour cette procédure — en cas de conflit, applique CE document.
 
@@ -147,7 +147,7 @@ globalThis.MAPPING.push({ecran:'CODE', ligne:'bouton Add', src:'1:18932', choix:
 **Ne s'exécute pas en `convert`/`update`/`create`** — vérifie le mode annoncé par l'user avant d'appliquer cette section (§ « Modes » en tête de skill). Aucun champ nouveau : compte, sur ce que le mapping de CET écran vient d'écrire, `customs = MAPPING.filter(m=>m.ecran===<écran> && m.statut==='custom').length` et `compromis = LEDGER.filter(l=>l.ecran===<écran> && l.type==='COMPROMIS').length`. **Seuil de déclenchement** : `customs>=2` OU `compromis>=3` → écran ambigu pour le réglage courant. En-dessous → continue silencieusement, aucune question.
 
 Seuil franchi : passe la sentinelle à `{"etat":"bloque","motif":"proposition modèle plus capable pour <écran>"}`, poste **UNE FOIS pour l'écran entier** (jamais par élément) une proposition **graduée à l'écart mesuré** — pas systématiquement le plafond :
-- Écart modéré (tout juste au seuil, ex. `customs==2` seul OU `compromis==3` seul) → propose un **demi-cran** : soit garder le modèle actuel et monter l'effort (ex. Sonnet high → Sonnet xhigh), soit garder l'effort et monter de modèle (ex. Sonnet high → Opus high) — présente les deux options, l'user choisit.
+- Écart modéré (tout juste au seuil, ex. `customs==2` seul OU `compromis==3` seul) → propose un **demi-cran**, plusieurs options valides à présenter ensemble (l'user choisit) : garder le modèle et monter l'effort (Sonnet high → Sonnet xhigh) ; monter de modèle en gardant l'effort (Sonnet high → Opus high) ; monter de modèle en **baissant** l'effort (Sonnet high → **Opus medium**) — un modèle plus capable à effort moindre égale ou dépasse souvent un modèle plus faible à effort élevé, pour un coût comparable.
 - Écart marqué (les deux seuils franchis ensemble, ou `customs>=4` ou `compromis>=6`) → propose directement le **plafond : Opus / xhigh**.
 - **Plafond absolu, sur les deux paliers : jamais au-delà de `xhigh`, sur AUCUN modèle (Sonnet compris)** — ne propose jamais `max`, ni Fable, quelle que soit la sévérité.
 
