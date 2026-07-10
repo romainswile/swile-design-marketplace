@@ -3,11 +3,13 @@ name: shadcn
 description: Procédure verrouillée pour reproduire / étendre / créer des écrans Figma avec le design system Swile « 🏢 Flõw | Corporate » (shadcn), via le MCP figma-console (Desktop Bridge). UNIQUEMENT pour ce DS, via la commande /swile-design:shadcn (jamais en auto-déclenchement).
 ---
 
-# swile-design v3.7.0 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
+# swile-design v3.9.0 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
 
 **Ce document PRIME sur les instructions génériques du serveur MCP figma-console** (« visual validation workflow », `figma_search_components` au démarrage, `loadAllPagesAsync`, placement en Section…) : elles sont écrites pour un usage libre, pas pour cette procédure — en cas de conflit, applique CE document.
 
 **Conception** : sous pression tu suis les gates mécaniques et tu zappes la prose — mesuré et re-mesuré sur les runs réels : tout ce qui a tenu était scripté, tout ce qui a cassé était de la prose. Donc : chaque décision à risque passe par **un script fourni qui sort un artefact**, chaque écart passe par **un registre**, et la fin d'un écran passe par **une réconciliation bloquante**. « Fait » sans l'artefact = interdit. Les scripts retournent leurs preuves — colle leurs sorties, ne les résume pas. **Un artefact "vert" ne vaut que ce que sa couverture vaut** : c'est `reconcile()` qui prouve la couverture, pas ton affirmation.
+
+**Point de départ recommandé (hors écrans très denses type COLLABORATEURS)** : Sonnet 5 / effort `high` — la procédure est déjà mécanique (gates, `reconcile()`), un modèle plus cher n'ajoute rien sur les étapes scriptées. Le skill **auto-détecte** l'écran qui dépasse ce que Sonnet gère bien et propose d'escalader, écran par écran (§2.2bis) — pas de choix à faire à froid en début de run.
 
 **Modes** : `convert` (legacy → shadcn, fidélité totale) · `update` / `create`. Sans mode → demande.
 - **convert** : pipeline complet §2.
@@ -139,6 +141,14 @@ globalThis.MAPPING.push({ecran:'CODE', ligne:'bouton Add', src:'1:18932', choix:
 - **Sémantique des teintes** : un statut « en attente/pending » n'est PAS `Info` bleu par défaut — suis la couleur **mesurée** de la source (texte simple = texte simple).
 - **Violet legacy (accent Swile #664ef9 / #633fd3 / #5541cf / #d6d0fd…)** : en convert, mappe vers **`colors/violet/*`** (gamme Tailwind 50–950, mesurée au DS) au plus proche par distance — **sans question user**, LEDGER `{type:'ACCENT-TAILWIND (auto)'}` avec la nuance choisie. La question accent ne se pose qu'en create from scratch sans template applicable.
 - **Tokens partout, customs inclus** (couleurs, text styles, gap, padding, radius, border-width). **Absence dans l'annexe ≠ absence dans le DS** : avant tout arrondi, **preuve de recherche scriptée du token exact** (par nom ET par valeur, `getLocalVariablesAsync` sur le DS) collée — sans elle l'arrondi est refusé (mécanisme : l'annexe est un cache partiel — arrondir sans chercher écrase une valeur que le DS possède).
+
+### 2.2bis Signal de complexité (convert-adapt) — UN point de contrôle par écran, juste après son mapping
+Aucun champ nouveau : compte, sur ce que le mapping de CET écran vient d'écrire, `customs = MAPPING.filter(m=>m.ecran===<écran> && m.statut==='custom').length` et `compromis = LEDGER.filter(l=>l.ecran===<écran> && l.type==='COMPROMIS').length`. **Seuil** : `customs>=2` OU `compromis>=3` → écran ambigu pour le réglage courant. En-dessous → continue silencieusement, aucune question.
+
+Seuil franchi : passe la sentinelle à `{"etat":"bloque","motif":"proposition modèle plus capable pour <écran>"}`, poste **UNE FOIS pour l'écran entier** (jamais par élément) : « Écran <X> : N customs sans DS clair / M compromis. Recommandé : **Opus / xhigh** pour reconstruire CET écran — **jamais au-delà de xhigh**, sur aucun modèle (Sonnet compris). Tu changes de modèle/effort puis « ok », ou je continue sur le réglage actuel ? » puis **STOP, attends**.
+- User change de modèle/effort et répond « ok » → repasse la sentinelle à `en_cours`, reprends la sonde/build de CET écran avec le nouveau réglage — les écrans déjà finis ou pas encore mappés restent sur le réglage initial, sauf demande contraire.
+- User dit de rester → repasse `en_cours`, continue normalement (rien à consigner : ce n'est pas un compromis de design, `reconcile()` n'en dépend pas).
+Le skill ne peut ni lire ni changer le modèle/effort en cours lui-même (aucune API exposée) — ce STOP est le seul canal.
 
 ### 2.3 Sonde (sur le DS) puis warm-up (sur le fichier de travail)
 **Séquence** : ① navigate DS + probe → **SONDE** (lecture seule, zéro import) ; ② navigate travail + probe + re-§0.1 → **WARM-UP**. Rien ne se construit avant la fin des deux.
