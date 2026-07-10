@@ -13,12 +13,6 @@ Le lien à coller :
 https://github.com/romainswile/swile-design-marketplace
 ```
 
-<details>
-<summary>Version de Claude plus ancienne (menu différent)</summary>
-
-> **Settings** → **Connectors** → **Customize** → le **« + »** à droite de **Personal plugins** (menu de gauche) → **Add** → **Add marketplace** → collez le même lien → **Sync** → cliquez sur le **« + »** à droite de la carte **Swile Design**
-</details>
-
 C'est tout : le pont Figma (MCP figma-console) est inclus et démarre tout seul, et le skill **ne tourne jamais sur une version périmée** — il vérifie sa version à chaque lancement, se met à niveau tout seul si besoin (il vous demande alors juste de relancer dans une nouvelle session) et active l'auto-update pour les fois suivantes.
 
 ---
