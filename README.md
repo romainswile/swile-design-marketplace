@@ -6,20 +6,18 @@
 
 ## 🚀 Installation (une fois, ~1 minute — aucun compte requis)
 
-Selon votre version de Claude, le menu d'accès diffère :
-
-**Vous avez la dernière version de Claude :**
-
 > **Settings** → **Plugins** → **Add** → **Add marketplace** → collez le lien ci-dessous → **Sync** → cliquez sur le **« + »** à droite de la carte **Swile Design**
 
-**Vous avez une version plus ancienne** *(le plus probable : mises à jour bloquées sur nos Mac)* :
-
-> **Settings** → **Connectors** → **Customize** → le **« + »** à droite de **Personal plugins** (menu de gauche) → **Add** → **Add marketplace** → collez le lien ci-dessous → **Sync** → cliquez sur le **« + »** à droite de la carte **Swile Design**
-
-Le lien à coller dans les deux cas :
+Le lien à coller :
 ```
 https://github.com/romainswile/swile-design-marketplace
 ```
+
+<details>
+<summary>Version de Claude plus ancienne (menu différent)</summary>
+
+> **Settings** → **Connectors** → **Customize** → le **« + »** à droite de **Personal plugins** (menu de gauche) → **Add** → **Add marketplace** → collez le même lien → **Sync** → cliquez sur le **« + »** à droite de la carte **Swile Design**
+</details>
 
 C'est tout : le pont Figma (MCP figma-console) est inclus et démarre tout seul, et le skill **ne tourne jamais sur une version périmée** — il vérifie sa version à chaque lancement, se met à niveau tout seul si besoin (il vous demande alors juste de relancer dans une nouvelle session) et active l'auto-update pour les fois suivantes.
 
@@ -34,6 +32,7 @@ C'est tout : le pont Figma (MCP figma-console) est inclus et démarre tout seul,
 | Commande | Usage |
 |---|---|
 | `/swile-design:shadcn convert` | Reproduire des écrans actuels vers shadcn |
+| `/swile-design:shadcn convert-adapt` | Comme `convert`, mais propose de switcher sur un modèle plus puissant pour certains écrans si nécessaire |
 | `/swile-design:shadcn update` | Étendre ou modifier des écrans shadcn existants |
 | `/swile-design:shadcn create` | Créer de nouveaux écrans from scratch en partant directement de shadcn |
 
