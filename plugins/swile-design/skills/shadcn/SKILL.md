@@ -3,7 +3,7 @@ name: shadcn
 description: Procédure verrouillée pour reproduire / étendre / créer des écrans Figma avec le design system Swile « 🏢 Flõw | Corporate » (shadcn), via le MCP figma-console (Desktop Bridge). UNIQUEMENT pour ce DS, via la commande /swile-design:shadcn (jamais en auto-déclenchement).
 ---
 
-# swile-design v3.9.2 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
+# swile-design v3.10.0 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
 
 **Ce document PRIME sur les instructions génériques du serveur MCP figma-console** (« visual validation workflow », `figma_search_components` au démarrage, `loadAllPagesAsync`, placement en Section…) : elles sont écrites pour un usage libre, pas pour cette procédure — en cas de conflit, applique CE document.
 
@@ -11,7 +11,7 @@ description: Procédure verrouillée pour reproduire / étendre / créer des éc
 
 **Point de départ recommandé (hors écrans très denses type COLLABORATEURS)** : Sonnet 5 / effort `high` — la procédure est déjà mécanique (gates, `reconcile()`), un modèle plus cher n'ajoute rien sur les étapes scriptées.
 
-**Modes** : `convert` (legacy → shadcn, fidélité totale) · `convert-adapt` (identique à `convert` + auto-détection écran par écran d'un besoin d'escalade modèle/effort, §2.2bis) · `update` / `create`. Sans mode → demande.
+**Modes** : `convert` (legacy → shadcn, fidélité totale) · `convert-adapt` (identique à `convert` + décision groupée, après mapping complet, d'une escalade modèle/effort pour les écrans qui le justifient — jamais écran par écran en cours de route, §2.2bis) · `update` / `create`. Sans mode → demande.
 - **convert** : pipeline complet §2, réglage modèle/effort fixe du début à la fin — aucune proposition d'escalade.
 - **convert-adapt** : pipeline `convert` **+** §2.2bis actif après le mapping de chaque écran — c'est le SEUL mode où le skill propose de changer de modèle/effort en cours de run. `update`/`create` n'activent PAS §2.2bis, même si l'user en a l'habitude sur `convert-adapt` — mode explicite requis.
 - **update/create** : saute **uniquement le relevé de la source legacy** de §2.1 — les règles outillées qui y vivent (dumpSource obligatoire pour TOUT relevé d'écran, budget captures, règle sidebar) restent en vigueur. Mapping §2.2 obligatoire, réduit au **delta**, depuis la spec/maquette ou les écrans existants (lis-les). Tous les gates de §2.2 valent. Témoin = la première modification. Passe compare : source = spec/maquette ; update sans spec = read-back avant/après ; **create sans maquette** = paires en `expect{}` + read-back rapproché de la spec textuelle. `verify` restreint au sous-arbre modifié ; violations préexistantes → signale sans corriger.
@@ -123,7 +123,7 @@ globalThis.dumpSource = async (rootId, maxDepth) => {
 
 ### 2.2 Mapping — TEMPLATES d'abord, puis tableau + registres + GATE
 **0) TEMPLATES D'ABORD (obligatoire, avant toute décision de mapping)** : navigate DS + probe → page **« Swile - Templates »** (exemples officiels Swile, alimentée en continu). Convention : section `<ÉCRAN> - CONVERT` = frame `<ÉCRAN> - OLD` (source d'origine) + **COMPONENT publié `<ÉCRAN> - SHADCN`** ; sans suffixe = from scratch. Scan scripté posté : `await page.loadAsync()` PUIS `findAllWithCriteria({types:['COMPONENT','COMPONENT_SET']})` → noms + **clés** + dims. Puis, du plus gros au plus petit :
-- **L'écran demandé correspond à un template SHADCN** → importe le COMPONENT par sa clé (au warm-up) et **pose l'instance** — chemin le plus fiable qui existe (fidélité maximale, zéro reconstruction) ; adapte le delta via props/overrides, chaque override au LEDGER.
+- **L'écran demandé correspond à un template SHADCN** → importe le COMPONENT par sa clé (au warm-up), **`const inst = comp.createInstance(); const livrable = inst.detachInstance();`** — jamais `comp.clone()` directement sur le COMPONENT (`clone()` sur un `ComponentNode` renvoie un second `ComponentNode`, un maître dupliqué qui pollue le panneau Assets et se comporte différemment d'une frame — mesuré : ça a fini dans un livrable réel). `detachInstance()` donne une vraie `FrameNode` indépendante, cohérente avec le type des autres écrans construits sans template. Chemin le plus fiable qui existe malgré tout (fidélité maximale, zéro reconstruction manuelle) ; adapte le delta via props/overrides **avant** le detach (les overrides d'instance ne s'appliquent plus après), chaque override au LEDGER.
 - **Un élément est couvert par un template** → clone-le depuis l'instance posée (ou réplique-le depuis le dump du template) — mêmes composants/variantes/tokens, jamais réinventé. Après tout clone de template : **passe `clipsContent=false` sur les frames clonées** (les templates peuvent en hériter, `verify` les flaguera sinon). Les instances de template sont aussi ta **mine de text styles** (harvest, §2.3).
 - **Rien ne correspond** → mapping classique ci-dessous.
 Le template bat ta préférence — c'est la cohérence inter-écrans de Swile. Chaque ligne MAPPING garde son champ `tpl`.
@@ -135,6 +135,18 @@ Le template bat ta préférence — c'est la cohérence inter-écrans de Swile. 
 // statut 'custom' exige preuveCustom : réf. à l'artefact posté (templates sans correspondance + ≥2 synonymes ✦/showcases sans résultat)
 globalThis.MAPPING.push({ecran:'CODE', ligne:'bouton Add', src:'1:18932', choix:'Solid Button secondary/lg', statut:'DS', tpl:'aucun'});
 ```
+**Complétude du mapping — `structureCouverte`, à lancer juste après avoir fini le mapping de CET écran, avant la sonde/build** (mesuré : un conteneur entier — enveloppe blanche d'un écran — n'a jamais eu de ligne MAPPING du tout, donc `reconcile()` n'a rien pu flaguer : on ne détecte pas l'absence d'une ligne qui n'a jamais existé) :
+```js
+globalThis.structureCouverte = async (ecran, sourceRootId) => {
+  const root = await figma.getNodeByIdAsync(sourceRootId);
+  const junk = /^(Frame|Group|Rectangle|Vector|Ellipse)\s*\d*$/i;   // ignore les noms auto-générés Figma, source de bruit sur fichiers legacy mal nommés
+  const conteneurs = root.findAll(n=>(n.type==='FRAME'||n.type==='GROUP')&&n.visible!==false&&!junk.test((n.name||'').trim())&&n.parent&&(n.parent.id===root.id||(n.parent.parent&&n.parent.parent.id===root.id)));
+  const lignes = MAPPING.filter(x=>x.ecran===ecran).map(x=>x.ligne.toLowerCase());
+  const manquants = conteneurs.filter(c=>{const nm=c.name.toLowerCase();return !lignes.some(l=>l.includes(nm)||nm.includes(l));}).map(c=>c.name);
+  return { ecran, manquants, ok: manquants.length===0 };
+};
+```
+`manquants` non vide = un conteneur du 1er/2e niveau de la source, nommé de façon significative, n'apparaît dans AUCUNE ligne MAPPING de cet écran → soit ajoute la ligne manquante et couvre-le, soit prouve qu'il est déjà couvert sous un autre nom (par ex. dans la description d'une ligne existante) avant de continuer. Ne remplace pas `reconcile()` (qui vérifie que chaque ligne MAPPING **existante** a sa paire) — celui-ci couvre l'amont : que chaque conteneur **existe** dans le registre avant même de parler de paire.
 - Éléments proches = composants **distincts**. **Recoupe rendu + nom du nœud source + logique attendue** — la sonde mesure, elle **ne dispense pas de lire la source** (bordure visible → Outline candidat ; fond transparent → Ghost ; un même libellé sur 2 écrans ≠ même composant : **re-lis le nœud source de CET écran** avant de réutiliser une ligne de mapping ailleurs — sinon l'élément hérite du composant d'un autre écran).
 - **Test skip/compromis, appliqué AU MOMENT du choix** : élément ou propriété **visible** de la source absent de la repro = **SKIP, quel que soit le mot que tu emploies** → GATE (stop, préviens, demande, attends). Composant DS présent mais valeur divergente (token/taille au plus proche) = **compromis** → `LEDGER.push({ecran, element, type:'COMPROMIS', source:'…', choix:'…', pourEgaler:'…'})` **immédiatement** (pas au rapport). Un compromis dont `pourEgaler` se résout par un **simple import** (ex. « importer Ghost Icon Button ») = **refusé** : fais l'import isolé (§2.6), « coûteux » n'est pas un motif.
 - **Custom = dernier recours avec preuve MÉCANIQUE** : une ligne `statut:'custom'` n'est valide que si `preuveCustom:` référence un artefact scripté posté (scan Templates sans correspondance + `findAllWithCriteria` ≥2 synonymes sur pages ✦/showcases sans résultat). `reconcile()` échoue sur tout custom sans preuve (mécanisme : un custom sans recherche reproduit de mémoire un composant qui existe déjà — et `verify` ne peut pas le voir, il vérifie les tokens, pas l'existence d'un équivalent DS). **Exception déclarée** : les customs pré-justifiés par l'annexe (ex. pastilles) portent `preuveCustom:'annexe:<ligne>'` — la recherche ≥2 synonymes est levée, le scan Templates reste dû.
@@ -143,18 +155,30 @@ globalThis.MAPPING.push({ecran:'CODE', ligne:'bouton Add', src:'1:18932', choix:
 - **Violet legacy (accent Swile #664ef9 / #633fd3 / #5541cf / #d6d0fd…)** : en convert, mappe vers **`colors/violet/*`** (gamme Tailwind 50–950, mesurée au DS) au plus proche par distance — **sans question user**, LEDGER `{type:'ACCENT-TAILWIND (auto)'}` avec la nuance choisie. La question accent ne se pose qu'en create from scratch sans template applicable.
 - **Tokens partout, customs inclus** (couleurs, text styles, gap, padding, radius, border-width). **Absence dans l'annexe ≠ absence dans le DS** : avant tout arrondi, **preuve de recherche scriptée du token exact** (par nom ET par valeur, `getLocalVariablesAsync` sur le DS) collée — sans elle l'arrondi est refusé (mécanisme : l'annexe est un cache partiel — arrondir sans chercher écrase une valeur que le DS possède).
 
-### 2.2bis Signal de complexité — actif UNIQUEMENT en mode `convert-adapt`, UN point de contrôle par écran juste après son mapping
-**Ne s'exécute pas en `convert`/`update`/`create`** — vérifie le mode annoncé par l'user avant d'appliquer cette section (§ « Modes » en tête de skill). Aucun champ nouveau : compte, sur ce que le mapping de CET écran vient d'écrire, `customs = MAPPING.filter(m=>m.ecran===<écran> && m.statut==='custom').length` et `compromis = LEDGER.filter(l=>l.ecran===<écran> && l.type==='COMPROMIS').length`. **Seuil de déclenchement** : `customs>=2` OU `compromis>=3` → écran ambigu pour le réglage courant. En-dessous → continue silencieusement, aucune question.
+### 2.2bis Signal de complexité — actif UNIQUEMENT en mode `convert-adapt`, UNE décision groupée après le mapping COMPLET de tous les écrans, avant tout build
+**Ne s'exécute pas en `convert`/`update`/`create`** — vérifie le mode annoncé par l'user avant d'appliquer cette section (§ « Modes » en tête de skill). **N'évalue rien tant que le mapping de TOUS les écrans demandés n'est pas fini** (le mapping couvre déjà tous les écrans avant le témoin, §2.2) — évaluer écran par écran pendant le mapping ferait porter la décision sur l'ordre de mapping, pas sur l'ordre réel de construction, et ferait hériter du changement le mauvais écran (mesuré : un run l'a fait, l'escalade serait tombée sur le témoin construit en premier plutôt que sur l'écran réellement complexe).
 
-Seuil franchi : passe la sentinelle à `{"etat":"bloque","motif":"proposition modèle plus capable pour <écran>"}`, poste **UNE FOIS pour l'écran entier** (jamais par élément) une proposition **graduée à l'écart mesuré** — pas systématiquement le plafond :
-- Écart modéré (tout juste au seuil, ex. `customs==2` seul OU `compromis==3` seul) → propose un **demi-cran**, plusieurs options valides à présenter ensemble (l'user choisit) : garder le modèle et monter l'effort (Sonnet high → Sonnet xhigh) ; monter de modèle en gardant l'effort (Sonnet high → Opus high) ; monter de modèle en **baissant** l'effort (Sonnet high → **Opus medium**) — un modèle plus capable à effort moindre égale ou dépasse souvent un modèle plus faible à effort élevé, pour un coût comparable.
-- Écart marqué (les deux seuils franchis ensemble, ou `customs>=4` ou `compromis>=6`) → propose directement le **plafond : Opus / xhigh**.
-- **Plafond absolu, sur les deux paliers : jamais au-delà de `xhigh`, sur AUCUN modèle (Sonnet compris)** — ne propose jamais `max`, ni Fable, quelle que soit la sévérité.
+**Par écran, deux compteurs DÉDOUBLONNÉS** (aucun champ nouveau — dédoublonne par `choix`, pas par ligne : un même élément custom dupliqué sur l'écran — ex. une card répétée 2 fois avec la même solution — compte pour UN seul, la 2e occurrence est un clone de la même décision, pas une décision de plus) :
+```js
+const customs = new Set(MAPPING.filter(m=>m.ecran===écran && m.statut==='custom').map(m=>m.choix)).size;
+const compromis = new Set(LEDGER.filter(l=>l.ecran===écran && l.type==='COMPROMIS').map(l=>l.choix)).size;
+```
+**Seuil de déclenchement (ET, pas OU)** : `customs>=2` **ET** `compromis>=3` — les deux signaux doivent co-exister pour juger l'écran ambigu ; un seul signal isolé (2 customs propres sans aucun compromis, par exemple) ne suffit pas à déclencher une pause, il se traite normalement. **Tier de sévérité, une fois le seuil franchi** : `customs>=4` OU `compromis>=6` (un seul signal qui s'envole suffit) → **marqué** ; sinon → **modéré**.
 
-Message type : « Écran <X> : N customs sans DS clair / M compromis. Proposition : <échelon calculé ci-dessus>. Tu changes de modèle/effort puis « ok », ou je continue sur le réglage actuel ? » puis **STOP, attends**.
-- User change de modèle/effort et répond « ok » → repasse la sentinelle à `en_cours`, reprends la sonde/build de CET écran avec le nouveau réglage — les écrans déjà finis ou pas encore mappés restent sur le réglage initial, sauf demande contraire.
-- User dit de rester → repasse `en_cours`, continue normalement (rien à consigner : ce n'est pas un compromis de design, `reconcile()` n'en dépend pas).
-Le skill ne peut ni lire ni changer le modèle/effort en cours lui-même (aucune API exposée) — ce STOP est le seul canal.
+**Partitionne AVANT tout build** : `defaut` = écrans qui ne franchissent pas le seuil ; `escalade` = écrans qui le franchissent. Construis d'abord **tout le groupe `defaut`** (dans l'ordre demandé entre eux, réglage courant inchangé du début à la fin de ce groupe) — le témoin (§2.6) est le premier écran de CE groupe, ou le premier du groupe `escalade` si `defaut` est vide, pas forcément le premier écran nommé par l'user dans la requête initiale.
+
+**Si `escalade` est vide → rien à proposer, série normale.** Si `escalade` est non vide, **UN SEUL STOP pour tout le lot** une fois le groupe `defaut` terminé (jamais un STOP par écran, jamais plusieurs allers-retours de modèle en cours de run) :
+- Un seul écran du lot en tier **marqué** suffit pour proposer le **plafond Opus/xhigh** à TOUT le lot.
+- Sinon (tout le lot en tier **modéré**) → propose **un seul** demi-cran pour tout le lot, choisi parmi : garder le modèle et monter l'effort (Sonnet high → Sonnet xhigh) ; monter de modèle en gardant l'effort (Sonnet high → Opus high) ; monter de modèle en **baissant** l'effort (Sonnet high → **Opus medium** — souvent comparable en coût, un modèle plus capable à effort moindre égalant ou dépassant un modèle plus faible à effort élevé).
+- **Un seul changement de modèle/effort sur tout le run** : jamais d'étapes (jamais Sonnet → Opus medium PUIS Opus high) — le lot entier bascule sur UN palier, une seule fois.
+- **Plafond absolu, sur les deux tiers : jamais au-delà de `xhigh`, sur AUCUN modèle (Sonnet compris)** — ne propose jamais `max`, ni Fable, quelle que soit la sévérité.
+- Ne présente **jamais** l'option de rester comme « recommandée » ou toute formulation qui pousse à décliner ta propre proposition — présente les deux options à égalité, l'user tranche.
+- **Explicite la portée** dans le message : le changement, s'il est accepté, s'applique à TOUT le lot `escalade` restant (pas juste au prochain écran) et reste actif jusqu'à ce que l'user dise explicitement de revenir au réglage initial — tu ne peux ni lire ni changer le modèle/effort toi-même (aucune API exposée), ce STOP est le seul canal.
+
+Message type : « Groupe `defaut` terminé (<liste>). Écrans `<liste escalade>` : signaux dédoublonnés — <détail par écran, N customs / M compromis>. Proposition pour CE LOT ENTIER : <échelon calculé ci-dessus>. Le réglage s'appliquera à tous ces écrans jusqu'à ce que tu redemandes explicitement de revenir en arrière. Tu changes de modèle/effort puis « ok », ou je construis ce lot sur le réglage actuel ? » puis **STOP, attends**.
+- Sentinelle `{"etat":"bloque","motif":"proposition modèle plus capable pour <liste escalade>"}` avant le STOP, repasse `en_cours` à la reprise (accord ou refus, dans les deux cas).
+- User change de modèle/effort et répond « ok » → construis le lot `escalade` entier sur ce nouveau réglage, sans nouveau STOP intermédiaire.
+- User dit de rester → construis le lot `escalade` sur le réglage courant (rien à consigner : ce n'est pas un compromis de design, `reconcile()` n'en dépend pas).
 
 ### 2.3 Sonde (sur le DS) puis warm-up (sur le fichier de travail)
 **Séquence** : ① navigate DS + probe → **SONDE** (lecture seule, zéro import) ; ② navigate travail + probe + re-§0.1 → **WARM-UP**. Rien ne se construit avant la fin des deux.
@@ -335,7 +359,8 @@ globalThis.insideCloneCS = n=>{let p=n;while(p&&p.type!=='PAGE'){if(p.name==='si
 globalThis.readNode = async (id) => { const n=await figma.getNodeByIdAsync(id); if(!n) return {missing:true,id};
   const toHex=c=>'#'+[c.r,c.g,c.b].map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');
   const r={name:n.name, w:Math.round(n.width), h:Math.round(n.height)};
-  if(n.layoutMode&&n.layoutMode!=='NONE') r.align=n.primaryAxisAlignItems;
+  if(n.layoutMode&&n.layoutMode!=='NONE'){ r.align=n.primaryAxisAlignItems; r.gap=n.itemSpacing; r.pad=(n.paddingTop||0)+(n.paddingBottom||0)+(n.paddingLeft||0)+(n.paddingRight||0); }
+  if(n.type!=='INSTANCE'&&'children'in n) r.ordreEnfants=n.children.filter(c=>c.visible!==false).map(c=>c.name);   // ordre des enfants DIRECTS, jamais dans une INSTANCE (structure interne DS hors de portée de l'agent)
   const visOK=x=>{ if(x.visible===false) return false; let p=x.parent; while(p&&p.id!==n.id&&p.type!=='PAGE'){ if(p.visible===false) return false; p=p.parent; } return true; };   // visibilité PLEINE CHAÎNE — un calque caché par un ancêtre pollue bg/glyphe/textes sinon
   let best=null,ba=-1,bestNode=null;
   for(const x of [n,...('findAll'in n?n.findAll(()=>true):[])]){ if(!visOK(x)) continue;
@@ -362,7 +387,13 @@ globalThis.compareToSource = async (pairs) => {
         else diffs.push('bg '+A.bgHex+' != '+B.bgHex+(d!==null?' (dist '+d+')':'')); }
       if(Math.abs(A.w-B.w)>1||Math.abs(A.h-B.h)>1) diffs.push('dims '+A.w+'x'+A.h+' != '+B.w+'x'+B.h);
       if(A.align&&B.align&&A.align!==B.align) diffs.push('align '+A.align+' != '+B.align);
-      if(p.compareTexts&&A.texts!==B.texts) diffs.push('texts "'+A.texts+'" != "'+B.texts+'"'); }
+      if(p.compareTexts&&A.texts!==B.texts) diffs.push('texts "'+A.texts+'" != "'+B.texts+'"');
+      if(typeof A.gap==='number'&&typeof B.gap==='number'&&A.align!=='SPACE_BETWEEN'&&B.align!=='SPACE_BETWEEN'&&A.gap===0&&B.gap>2) diffs.push('gap manquant : repro 0 vs source '+B.gap+'px');   // présence, pas valeur exacte — la normalisation vers un token DS (14→16px) N'EST PAS un diff
+      if(typeof A.pad==='number'&&typeof B.pad==='number'&&A.pad===0&&B.pad>4) diffs.push('padding manquant : repro 0 vs source '+B.pad+'px cumulés');
+      if(Array.isArray(A.ordreEnfants)&&Array.isArray(B.ordreEnfants)){
+        const bNoms=B.ordreEnfants.map(x=>x.toLowerCase()), aCommuns=A.ordreEnfants.map(x=>x.toLowerCase()).filter(x=>bNoms.includes(x)), bCommuns=bNoms.filter(x=>aCommuns.includes(x));
+        if(aCommuns.length>1&&JSON.stringify(aCommuns)!==JSON.stringify(bCommuns)) diffs.push('ordre des enfants directs diffère : '+aCommuns.join(',')+' vs '+bCommuns.join(','));   // seulement les enfants nommés PAREIL des deux côtés — les taxonomies différentes (legacy vs DS) ne se comparent pas
+      } }
     if(p.expect){ if(p.expect.bgVar&&A.bgVar!==p.expect.bgVar) diffs.push('token '+A.bgVar+' != '+p.expect.bgVar);
       if(p.expect.dims&&(Math.abs(A.w-p.expect.dims.w)>1||Math.abs(A.h-p.expect.dims.h)>1)) diffs.push('dims '+A.w+'x'+A.h+' != attendu '+p.expect.dims.w+'x'+p.expect.dims.h);
       if(p.expect.variant) for(const [k,v] of Object.entries(p.expect.variant)) if((A.variant||{})[k]!==v) diffs.push('variant '+k+' != '+v); }
@@ -377,6 +408,7 @@ globalThis.compareToSource = async (pairs) => {
 ```
 Écart **attendu** (compromis au LEDGER) → cite l'entrée LEDGER ; inexpliqué → corrige.
 **`nearColors`** = fond différent mais **token conforme au mapping** (`expect.bgVar`) : palette DS vs palette legacy, auto-classé — recopie chaque entrée au LEDGER `{type:'NEAR-COLOR (auto)'}`, aucune question user. Toute paire dont le fond vient d'un token du mapping DOIT porter `expect.bgVar` (sans lui, l'écart reste un diff à corriger). La classification se fonde sur la conformité du token, **JAMAIS sur un seuil de distance** (mesuré sur le run validé du 07/07 : résidus légitimes jusqu'à dist **59** — `theme/success` —, bug historique à dist 35 : aucun seuil ne les sépare). `compareTexts` : le clone sidebar est exclu côté repro → réserve-le aux sous-zones hors sidebar (l'écran entier est couvert par textDiff). **La couleur RENDUE d'un paint est `p.color`** (déjà résolue, mode compris) — n'écris JAMAIS de résolveur maison à base de `valuesByMode` (collection multi-modes → mauvais mode → faux diagnostics de contraste).
+**Portée exacte des 3 nouveaux diffs (gap/padding manquant, ordre des enfants)** — à connaître avant de t'y fier : ils ne comparent QUE les paires que tu choisis de tester (§2.5 « paires minimales par écran »), donc un conteneur jamais inclus comme paire reste hors radar quel que soit son état réel — `structureCouverte` (§2.2) couvre l'amont (le conteneur existe-t-il au moins dans MAPPING), mais rien ne force encore qu'il soit systématiquement PAIRÉ pour compareToSource au-delà de ce que §2.5 exige déjà (racine + un frame par zone). L'ordre des enfants ne se compare que sur des noms identiques des deux côtés et jamais à l'intérieur d'une INSTANCE — un réagencement DANS un composant DS reste invisible (normal, hors de portée de l'agent) ; un réagencement que TU as fait en assemblant une rangée toi-même est ce que ce check attrape. Ce ne sont pas des vérités absolues, juste trois angles morts mesurés qui sont désormais couverts — d'autres peuvent exister.
 **Passe 3 — `textDiff` : aucun texte source ne disparaît.**
 ```js
 // Compare par OCCURRENCES (multiset) : un texte répété N fois dans la source doit exister N fois dans la repro
