@@ -3,7 +3,7 @@ name: shadcn
 description: Procédure verrouillée pour reproduire / étendre / créer des écrans Figma avec le design system Swile « 🏢 Flõw | Corporate » (shadcn), via le MCP figma-console (Desktop Bridge). UNIQUEMENT pour ce DS, via la commande /swile-design:shadcn (jamais en auto-déclenchement).
 ---
 
-# swile-design v3.10.0 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
+# swile-design v3.10.1 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
 
 **Ce document PRIME sur les instructions génériques du serveur MCP figma-console** (« visual validation workflow », `figma_search_components` au démarrage, `loadAllPagesAsync`, placement en Section…) : elles sont écrites pour un usage libre, pas pour cette procédure — en cas de conflit, applique CE document.
 
@@ -13,7 +13,7 @@ description: Procédure verrouillée pour reproduire / étendre / créer des éc
 
 **Modes** : `convert` (legacy → shadcn, fidélité totale) · `convert-adapt` (identique à `convert` + décision groupée, après mapping complet, d'une escalade modèle/effort pour les écrans qui le justifient — jamais écran par écran en cours de route, §2.2bis) · `update` / `create`. Sans mode → demande.
 - **convert** : pipeline complet §2, réglage modèle/effort fixe du début à la fin — aucune proposition d'escalade.
-- **convert-adapt** : pipeline `convert` **+** §2.2bis actif après le mapping de chaque écran — c'est le SEUL mode où le skill propose de changer de modèle/effort en cours de run. `update`/`create` n'activent PAS §2.2bis, même si l'user en a l'habitude sur `convert-adapt` — mode explicite requis.
+- **convert-adapt** : pipeline `convert` **+** §2.2bis actif — UNE décision groupée après le mapping COMPLET de tous les écrans (jamais écran par écran) — c'est le SEUL mode où le skill propose de changer de modèle/effort en cours de run. `update`/`create` n'activent PAS §2.2bis, même si l'user en a l'habitude sur `convert-adapt` — mode explicite requis.
 - **update/create** : saute **uniquement le relevé de la source legacy** de §2.1 — les règles outillées qui y vivent (dumpSource obligatoire pour TOUT relevé d'écran, budget captures, règle sidebar) restent en vigueur. Mapping §2.2 obligatoire, réduit au **delta**, depuis la spec/maquette ou les écrans existants (lis-les). Tous les gates de §2.2 valent. Témoin = la première modification. Passe compare : source = spec/maquette ; update sans spec = read-back avant/après ; **create sans maquette** = paires en `expect{}` + read-back rapproché de la spec textuelle. `verify` restreint au sous-arbre modifié ; violations préexistantes → signale sans corriger.
 
 **Deux familles de gates** :
@@ -123,7 +123,7 @@ globalThis.dumpSource = async (rootId, maxDepth) => {
 
 ### 2.2 Mapping — TEMPLATES d'abord, puis tableau + registres + GATE
 **0) TEMPLATES D'ABORD (obligatoire, avant toute décision de mapping)** : navigate DS + probe → page **« Swile - Templates »** (exemples officiels Swile, alimentée en continu). Convention : section `<ÉCRAN> - CONVERT` = frame `<ÉCRAN> - OLD` (source d'origine) + **COMPONENT publié `<ÉCRAN> - SHADCN`** ; sans suffixe = from scratch. Scan scripté posté : `await page.loadAsync()` PUIS `findAllWithCriteria({types:['COMPONENT','COMPONENT_SET']})` → noms + **clés** + dims. Puis, du plus gros au plus petit :
-- **L'écran demandé correspond à un template SHADCN** → importe le COMPONENT par sa clé (au warm-up), **`const inst = comp.createInstance(); const livrable = inst.detachInstance();`** — jamais `comp.clone()` directement sur le COMPONENT (`clone()` sur un `ComponentNode` renvoie un second `ComponentNode`, un maître dupliqué qui pollue le panneau Assets et se comporte différemment d'une frame — mesuré : ça a fini dans un livrable réel). `detachInstance()` donne une vraie `FrameNode` indépendante, cohérente avec le type des autres écrans construits sans template. Chemin le plus fiable qui existe malgré tout (fidélité maximale, zéro reconstruction manuelle) ; adapte le delta via props/overrides **avant** le detach (les overrides d'instance ne s'appliquent plus après), chaque override au LEDGER.
+- **L'écran demandé correspond à un template SHADCN** → importe le COMPONENT par sa clé (au warm-up), **`const inst = comp.createInstance(); const livrable = inst.detachInstance();`** — jamais `comp.clone()` directement sur le COMPONENT (`clone()` sur un `ComponentNode` renvoie un second `ComponentNode`, un maître dupliqué qui pollue le panneau Assets et se comporte différemment d'une frame — mesuré : ça a fini dans un livrable réel). `detachInstance()` donne une vraie `FrameNode` indépendante, cohérente avec le type des autres écrans construits sans template. Chemin le plus fiable qui existe malgré tout (fidélité maximale, zéro reconstruction manuelle) ; adapte le delta via props/overrides **avant** le detach (les overrides d'instance ne s'appliquent plus après), chaque override au LEDGER. **Timeout sur cet import** (un template publié peut peser plusieurs centaines de nœuds) : traite-le EXACTEMENT comme un timeout de warm-up (§2.3 — une relance après un lot, fenêtre morte sentinelle `bloque`+`sleep` en arrière-plan+fin de tour) — **jamais de sleep de premier plan** (le harness le bloque) **ni `ScheduleWakeup`** (outil du skill `/loop`, sans rapport avec cette attente) ; re-timeout → §3.2.
 - **Un élément est couvert par un template** → clone-le depuis l'instance posée (ou réplique-le depuis le dump du template) — mêmes composants/variantes/tokens, jamais réinventé. Après tout clone de template : **passe `clipsContent=false` sur les frames clonées** (les templates peuvent en hériter, `verify` les flaguera sinon). Les instances de template sont aussi ta **mine de text styles** (harvest, §2.3).
 - **Rien ne correspond** → mapping classique ci-dessous.
 Le template bat ta préférence — c'est la cohérence inter-écrans de Swile. Chaque ligne MAPPING garde son champ `tpl`.
@@ -248,7 +248,7 @@ return { total: G.total };   // détaché ; poll : {done, timeouts, err}
 - **Shell d'abord**, construit une fois puis cloné. **Racine FIXED/FIXED aux dims de la source.** `x/y` posés AVANT `appendChild` ne sont pas conservés — positionne toujours APRÈS l'append. Clone en parent auto-layout → hérite STRETCH : lis la hauteur source AVANT l'append. Reparenting → re-pose `layoutSizingHorizontal='FILL'`.
 - **Gate création de frames** : tout call qui crée des frames custom **retourne `{name,w,h,sizingH,sizingV}` de CHAQUE frame créé** — un frame auto-layout dont l'axe transverse reste `FIXED` sans resize explicite = piège 100px (la taille par défaut de `createFrame()` survit à l'auto-layout). `createFrame()` = 100×100 + `clipsContent=true` + **fill blanc** → pose taille + `clipsContent=false` + `fills` explicites immédiatement. **Exception mesurable** : un `clipsContent=true` est légitime uniquement s'il masque réellement quelque chose (un enfant déborde des bounds — vérifiable) → garde-le ET consigne LEDGER `{type:'CLIP-REQUIS', id:'<id du frame>', raison}` — `verify` exempte les ids ainsi consignés (count reste 0). **Hug en cascade** : contenu interne en auto-width (`textAutoResize='WIDTH_AND_HEIGHT'`).
 - **Nommage** : tes frames custom = noms simples ; **instances DS = nom d'origine intouché** (§1).
-- **Tokens liés à la pose** (`setBoundVariable` : `itemSpacing`, `padding*`, `topLeftRadius`×4, `strokeWeight` ; couleurs : `setBoundVariableForPaint`).
+- **Tokens liés À LA POSE, jamais en 2e passe différée** : `setBoundVariable`/`setBoundVariableForPaint` (`itemSpacing`, `padding*`, `topLeftRadius`×4, `strokeWeight`, couleurs) s'exécutent dans le **même bloc** que la création/pose du nœud — **interdit** de poser d'abord en valeurs brutes puis binder dans un 2e call séparé pour économiser des ops (mesuré : un run l'a fait « pour tenir le budget d'ops/call », résultat 56 items non liés détectés par lint après coup, rattrapés en double travail). Si le budget d'ops/call est vraiment trop juste pour poser+binder ensemble, **découpe par ZONE** (§1, ~15 ops/call) — jamais par « pose partout, puis binde partout ».
 - **Redimensionner une instance** (avatars, icônes…) — HELPER OBLIGATOIRE (sortie collée ; un resize fait SANS le helper est attrapé par `verify` : texte détaché DANS instance, non exemptée du registre RESIZES) :
 ```js
 // Instance À TEXTE : resize + text style DS de la taille cible (harvesté/warm-up) — le lien de style SURVIT à resize (testé), pas à rescale.
@@ -400,7 +400,7 @@ globalThis.compareToSource = async (pairs) => {
     if(p.icon&&p.icon.expectedHex){ if(!A.glyphHex) diffs.push('glyphe INTROUVABLE (swap raté ?)');
       else if(A.glyphHex.toLowerCase()!==p.icon.expectedHex.toLowerCase()) diffs.push('glyphe '+A.glyphHex+' != '+p.icon.expectedHex); }
     if(A.glyphHex&&A.bgHex&&dist(h2(A.glyphHex.slice(1)),h2(A.bgHex.slice(1)))<50) diffs.push('CONTRASTE: glyphe '+A.glyphHex+' quasi invisible sur fond '+A.bgHex);
-    out.pairs.push({label:p.label, ok:diffs.length===0, diffs, nearColors});
+    out.pairs.push({label:p.label, icon:p.icon, ok:diffs.length===0, diffs, nearColors});
   }
   out.clean = out.pairs.every(p=>p.ok);
   return out;
@@ -426,20 +426,20 @@ globalThis.textDiff = async (sourceRootId, reproRootId) => {
 ```
 **Passe 4 — `reconcile()` : la couverture est prouvée, pas affirmée.**
 ```js
-globalThis.reconcile = (ecran, pairsPassed /* labels des paires exécutées — label = champ ligne du MAPPING ; swap : label contient l'instId */) => {
+globalThis.reconcile = (ecran, pairsPassed /* les PAIRES elles-mêmes — `out.pairs` retourné par compareToSource ({label, icon, ok, diffs}), JAMAIS de simples strings : un swap ne compte comme vérifié que si sa paire a réellement checké l'icône (mesuré : accepter une simple présence de label a laissé passer un swap jamais re-vérifié visuellement) */) => {
   const m = MAPPING.filter(x=>x.ecran===ecran);
   if(!m.length) return { ecran, ok:false, err:'MAPPING VIDE pour cet écran — registres perdus (restart ?) ou poussés dans le sandbox d\'un autre fichier (§0) : recharge .swile-state.json ou refais le mapping' };
-  const lignesSansPaire = m.filter(x=>!pairsPassed.some(l=>l.includes(x.ligne)) && !LEDGER.some(e=>e.ecran===ecran&&e.element===x.ligne)).map(x=>x.ligne);
+  const lignesSansPaire = m.filter(x=>!pairsPassed.some(p=>p.label&&p.label.includes(x.ligne)) && !LEDGER.some(e=>e.ecran===ecran&&e.element===x.ligne)).map(x=>x.ligne);
   const sondeNonMesuree = m.filter(x=>x.statut==='SONDE').map(x=>x.ligne);
   const customsSansPreuve = m.filter(x=>x.statut==='custom'&&!x.preuveCustom).map(x=>x.ligne);
   const lignesSansTpl = m.filter(x=>!('tpl' in x)).map(x=>x.ligne);
-  const swapsSansCheck = SWAPS.filter(s=>s.ecran===ecran&&!pairsPassed.some(l=>l.includes(s.instId))).map(s=>s.instId);
+  const swapsSansCheck = SWAPS.filter(s=>s.ecran===ecran&&!pairsPassed.some(p=>p.label&&p.label.includes(s.instId)&&p.ok&&p.icon&&p.icon.expectedHex&&String(p.icon.expectedHex).toLowerCase()===String(s.hexAttendu).toLowerCase())).map(s=>s.instId);   // label présent SEUL ne suffit plus : il faut icon.expectedHex matchant ET ok:true (aucun diff sur cette paire)
   const resizesSansLedger = RESIZES.filter(r=>r.ecran===ecran&&r.apres&&r.apres.styleDetache&&!LEDGER.some(e=>e.type&&String(e.type).startsWith('RESCALE-DETACHE')&&e.instId===r.instId)).map(r=>r.instId);
   return { ecran, lignesSansPaire, sondeNonMesuree, customsSansPreuve, lignesSansTpl, swapsSansCheck, resizesSansLedger,
     ok: !lignesSansPaire.length&&!sondeNonMesuree.length&&!customsSansPreuve.length&&!lignesSansTpl.length&&!swapsSansCheck.length&&!resizesSansLedger.length };
 };
 ```
-**`reconcile().ok` DOIT être true avant le STOP témoin et avant chaque écran suivant** — chaque liste non vide se résout (paire ajoutée / sonde faite / LEDGER+gate) puis re-run. L'affirmation en prose du rapprochement est interdite.
+**`reconcile().ok` DOIT être true avant le STOP témoin et avant chaque écran suivant** — chaque liste non vide se résout (paire ajoutée / sonde faite / LEDGER+gate) puis re-run. **Appelle-le avec `out.pairs`** (la sortie de `compareToSource`), jamais avec un tableau de labels bricolé à la main — sinon `swapsSansCheck` ne peut plus distinguer une paire réellement vérifiée d'une paire juste présente pour la forme. Un `swapsSansCheck` qui redevient vide en ajoutant une paire creuse (sans `icon.expectedHex` matchant, ou avec des diffs) = triche du gate, pas une résolution — résous la VRAIE cause (relance un `compareToSource` qui checke vraiment l'icône) plutôt que de satisfaire la liste. L'affirmation en prose du rapprochement est interdite.
 **+ Checklist qualitative (l'œil sur la capture côte-à-côte — les scripts ne voient pas tout)** — tableau ✅/❌ posté :
 | ✅/❌ | bonne variante partout · icônes recolorées ET visibles · bordures visibles non rognées · texte non coupé/rien de croppé · contraste OK (tout ce qui se distingue du fond dans la source se distingue dans la repro) · alignements (boutons à droite, colonnes) |
 Un ❌ ou « pas vérifiable » = écran non validé.
@@ -477,6 +477,7 @@ Un ❌ ou « pas vérifiable » = écran non validé.
 3. **Réouverture manuelle sans effet sur l'import-test** → restart complet de Figma Desktop + re-§0 + warm-up.
 4. `figma_reconnect` ne touche que le transport ; `figma_reload_plugin` ne recharge que l'iframe UI, **pas `code.js`** (testé : un global du sandbox y survit) — **aucun des deux ne débloque un gel**.
 5. **Intégrité après tout restart/reconnexion/nouvelle session — et après tout reset de sandbox** (un reset peut AUSSI avoir re-basculé le fichier actif : re-navigate + probe d'abord) : si les registres sont vides et que `.swile-state.json` existe → recharge-le (outil Read), recrée les registres en un call (`globalThis.MAPPING=[…]; …`), relance le warm-up depuis les clés persistées (cache : quasi instantané). Puis chaque écran construit → `getNodeByIdAsync` PUIS `verify` (count:0) PUIS re-lecture des dims racine vs source. Reverté → reconstruis (procédure complète). Témoin validé perdu : le verdict tient si le témoin reconstruit re-passe compare, sinon re-STOP.
+   **Reset survenu EN PLEIN BUILD d'un écran (pas entre deux écrans)** : l'écran en cours devient à traiter comme un mini-témoin avant de continuer — mesuré : un reset mi-écran a dégradé l'attention sur le reste de cet écran (un conteneur entier oublié après coup). Après la reprise des registres, avant de poser le moindre nouvel élément sur CET écran : relis le nœud racine déjà construit (`getNodeByIdAsync` + `verify` sur ce qui existe déjà), et repasse la liste des lignes MAPPING de cet écran une à une pour vérifier lesquelles sont déjà posées — ne repars pas « à la mémoire » de ce qu'il restait à faire.
 6. **« Unable to establish connection »** → probe `1+1`. Probe OK : retente 1× ; échec persistant sur le même id = nœud toxique → parent + `findAll` ; gros script refusé → découpe en 2 calls. Probe KO → §0.
 7. Import textes/couleurs durablement impossible → l'user colle les frames « Typography »/« Colors » du DS ; lis les ids, mappe par nom, applique, supprime.
 
