@@ -3,16 +3,17 @@ name: shadcn
 description: Procédure verrouillée pour reproduire / étendre / créer des écrans Figma avec le design system Swile « 🏢 Flõw | Corporate » (shadcn), via le MCP figma-console (Desktop Bridge). UNIQUEMENT pour ce DS, via la commande /swile-design:shadcn (jamais en auto-déclenchement).
 ---
 
-# swile-design v3.9.0 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
+# swile-design v3.9.1 — écrans Figma → DS « 🏢 Flõw | Corporate » (shadcn)
 
 **Ce document PRIME sur les instructions génériques du serveur MCP figma-console** (« visual validation workflow », `figma_search_components` au démarrage, `loadAllPagesAsync`, placement en Section…) : elles sont écrites pour un usage libre, pas pour cette procédure — en cas de conflit, applique CE document.
 
 **Conception** : sous pression tu suis les gates mécaniques et tu zappes la prose — mesuré et re-mesuré sur les runs réels : tout ce qui a tenu était scripté, tout ce qui a cassé était de la prose. Donc : chaque décision à risque passe par **un script fourni qui sort un artefact**, chaque écart passe par **un registre**, et la fin d'un écran passe par **une réconciliation bloquante**. « Fait » sans l'artefact = interdit. Les scripts retournent leurs preuves — colle leurs sorties, ne les résume pas. **Un artefact "vert" ne vaut que ce que sa couverture vaut** : c'est `reconcile()` qui prouve la couverture, pas ton affirmation.
 
-**Point de départ recommandé (hors écrans très denses type COLLABORATEURS)** : Sonnet 5 / effort `high` — la procédure est déjà mécanique (gates, `reconcile()`), un modèle plus cher n'ajoute rien sur les étapes scriptées. Le skill **auto-détecte** l'écran qui dépasse ce que Sonnet gère bien et propose d'escalader, écran par écran (§2.2bis) — pas de choix à faire à froid en début de run.
+**Point de départ recommandé (hors écrans très denses type COLLABORATEURS)** : Sonnet 5 / effort `high` — la procédure est déjà mécanique (gates, `reconcile()`), un modèle plus cher n'ajoute rien sur les étapes scriptées.
 
-**Modes** : `convert` (legacy → shadcn, fidélité totale) · `update` / `create`. Sans mode → demande.
-- **convert** : pipeline complet §2.
+**Modes** : `convert` (legacy → shadcn, fidélité totale) · `convert-adapt` (identique à `convert` + auto-détection écran par écran d'un besoin d'escalade modèle/effort, §2.2bis) · `update` / `create`. Sans mode → demande.
+- **convert** : pipeline complet §2, réglage modèle/effort fixe du début à la fin — aucune proposition d'escalade.
+- **convert-adapt** : pipeline `convert` **+** §2.2bis actif après le mapping de chaque écran — c'est le SEUL mode où le skill propose de changer de modèle/effort en cours de run. `update`/`create` n'activent PAS §2.2bis, même si l'user en a l'habitude sur `convert-adapt` — mode explicite requis.
 - **update/create** : saute **uniquement le relevé de la source legacy** de §2.1 — les règles outillées qui y vivent (dumpSource obligatoire pour TOUT relevé d'écran, budget captures, règle sidebar) restent en vigueur. Mapping §2.2 obligatoire, réduit au **delta**, depuis la spec/maquette ou les écrans existants (lis-les). Tous les gates de §2.2 valent. Témoin = la première modification. Passe compare : source = spec/maquette ; update sans spec = read-back avant/après ; **create sans maquette** = paires en `expect{}` + read-back rapproché de la spec textuelle. `verify` restreint au sous-arbre modifié ; violations préexistantes → signale sans corriger.
 
 **Deux familles de gates** :
@@ -142,10 +143,15 @@ globalThis.MAPPING.push({ecran:'CODE', ligne:'bouton Add', src:'1:18932', choix:
 - **Violet legacy (accent Swile #664ef9 / #633fd3 / #5541cf / #d6d0fd…)** : en convert, mappe vers **`colors/violet/*`** (gamme Tailwind 50–950, mesurée au DS) au plus proche par distance — **sans question user**, LEDGER `{type:'ACCENT-TAILWIND (auto)'}` avec la nuance choisie. La question accent ne se pose qu'en create from scratch sans template applicable.
 - **Tokens partout, customs inclus** (couleurs, text styles, gap, padding, radius, border-width). **Absence dans l'annexe ≠ absence dans le DS** : avant tout arrondi, **preuve de recherche scriptée du token exact** (par nom ET par valeur, `getLocalVariablesAsync` sur le DS) collée — sans elle l'arrondi est refusé (mécanisme : l'annexe est un cache partiel — arrondir sans chercher écrase une valeur que le DS possède).
 
-### 2.2bis Signal de complexité (convert-adapt) — UN point de contrôle par écran, juste après son mapping
-Aucun champ nouveau : compte, sur ce que le mapping de CET écran vient d'écrire, `customs = MAPPING.filter(m=>m.ecran===<écran> && m.statut==='custom').length` et `compromis = LEDGER.filter(l=>l.ecran===<écran> && l.type==='COMPROMIS').length`. **Seuil** : `customs>=2` OU `compromis>=3` → écran ambigu pour le réglage courant. En-dessous → continue silencieusement, aucune question.
+### 2.2bis Signal de complexité — actif UNIQUEMENT en mode `convert-adapt`, UN point de contrôle par écran juste après son mapping
+**Ne s'exécute pas en `convert`/`update`/`create`** — vérifie le mode annoncé par l'user avant d'appliquer cette section (§ « Modes » en tête de skill). Aucun champ nouveau : compte, sur ce que le mapping de CET écran vient d'écrire, `customs = MAPPING.filter(m=>m.ecran===<écran> && m.statut==='custom').length` et `compromis = LEDGER.filter(l=>l.ecran===<écran> && l.type==='COMPROMIS').length`. **Seuil de déclenchement** : `customs>=2` OU `compromis>=3` → écran ambigu pour le réglage courant. En-dessous → continue silencieusement, aucune question.
 
-Seuil franchi : passe la sentinelle à `{"etat":"bloque","motif":"proposition modèle plus capable pour <écran>"}`, poste **UNE FOIS pour l'écran entier** (jamais par élément) : « Écran <X> : N customs sans DS clair / M compromis. Recommandé : **Opus / xhigh** pour reconstruire CET écran — **jamais au-delà de xhigh**, sur aucun modèle (Sonnet compris). Tu changes de modèle/effort puis « ok », ou je continue sur le réglage actuel ? » puis **STOP, attends**.
+Seuil franchi : passe la sentinelle à `{"etat":"bloque","motif":"proposition modèle plus capable pour <écran>"}`, poste **UNE FOIS pour l'écran entier** (jamais par élément) une proposition **graduée à l'écart mesuré** — pas systématiquement le plafond :
+- Écart modéré (tout juste au seuil, ex. `customs==2` seul OU `compromis==3` seul) → propose un **demi-cran** : soit garder le modèle actuel et monter l'effort (ex. Sonnet high → Sonnet xhigh), soit garder l'effort et monter de modèle (ex. Sonnet high → Opus high) — présente les deux options, l'user choisit.
+- Écart marqué (les deux seuils franchis ensemble, ou `customs>=4` ou `compromis>=6`) → propose directement le **plafond : Opus / xhigh**.
+- **Plafond absolu, sur les deux paliers : jamais au-delà de `xhigh`, sur AUCUN modèle (Sonnet compris)** — ne propose jamais `max`, ni Fable, quelle que soit la sévérité.
+
+Message type : « Écran <X> : N customs sans DS clair / M compromis. Proposition : <échelon calculé ci-dessus>. Tu changes de modèle/effort puis « ok », ou je continue sur le réglage actuel ? » puis **STOP, attends**.
 - User change de modèle/effort et répond « ok » → repasse la sentinelle à `en_cours`, reprends la sonde/build de CET écran avec le nouveau réglage — les écrans déjà finis ou pas encore mappés restent sur le réglage initial, sauf demande contraire.
 - User dit de rester → repasse `en_cours`, continue normalement (rien à consigner : ce n'est pas un compromis de design, `reconcile()` n'en dépend pas).
 Le skill ne peut ni lire ni changer le modèle/effort en cours lui-même (aucune API exposée) — ce STOP est le seul canal.
